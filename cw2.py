@@ -1,4 +1,3 @@
-import itertools
 
 def retrieved_docs(filename):
     
@@ -61,16 +60,19 @@ def recall(retrieved_docs, relevant_docs):
     return recall
 
 def AP(retrieved_docs, relevant_docs):
+    ap = 0 
+
     for i in range(len(retrieved_docs)-1):
-        print(retrieved_docs)
-        print(relevant_docs)
         if list(retrieved_docs.keys())[i] in relevant_docs:
-            print(retrieved_docs.keys())
-        break
+            retreived_k = {j: retrieved_docs[j] for j in list(retrieved_docs.keys())[:i+1]}
+            precision_k = precision(retreived_k.keys(), relevant_docs)
+            ap += precision_k * 1
+        
+        else:
+            ap += 0
 
-            
-
-
+    return ap/len(relevant_docs)
+        
 sys_retrieved_doc = retrieved_docs("/Users/arnav/Desktop/Y4/ttds/cw2/system_results.csv")
 relevant_doc = relevant_docs("/Users/arnav/Desktop/Y4/ttds/cw2/qrels.csv")
 
@@ -91,7 +93,7 @@ for _ ,retrieved_doc in sys_retrieved_doc.items():
         cut_off = retrieved_first_n(retrieved_doc[query], len(relevant_doc_q))
         r_precision = precision(cut_off.keys(), relevant_doc_q)
 
-        ap = AP(retrieved_doc, relevant_doc_q)
+        ap = AP(retrieved_doc[query], relevant_doc_q)
+        print(precision_10)
 
-        break
-    break
+        
