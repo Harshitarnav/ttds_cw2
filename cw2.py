@@ -173,7 +173,7 @@ def tsv_reader(filename):
             #     classes[row[0]] += text
             # else:
             #     classes.setdefault(row[0], text)
-    print(docs)
+    # print(docs)
     return docs, classes
 
 # def dict_count(classes):
@@ -278,16 +278,16 @@ def lda(docs):
     common_texts = [t for doc in docs.values() for t in doc]
     # print(common_texts)
     common_dictionary = Dictionary(common_texts)
-    print(len(common_dictionary))
+    # print(len(common_dictionary))
     common_corpus = [common_dictionary.doc2bow(text) for text in common_texts]
     lda = LdaModel(common_corpus, num_topics = 20, id2word = common_dictionary, random_state=42)
     # print(lda)
     corpus_each = list(docs.values())
-    print(len(common_corpus))
-    print(len(common_corpus[:len(corpus_each[0])]))
-    print(len(common_corpus[len(corpus_each[0]):(len(corpus_each[0])+len(corpus_each[1]))]))
-    print(len(common_corpus[(len(corpus_each[0])+len(corpus_each[1])):]))
-    # dictionary_OT = Dictionary(corpus_each[0])
+    # print(len(common_corpus))
+    # print(len(common_corpus[:len(corpus_each[0])]))
+    # print(len(common_corpus[len(corpus_each[0]):(len(corpus_each[0])+len(corpus_each[1]))]))
+    # print(len(common_corpus[(len(corpus_each[0])+len(corpus_each[1])):]))
+    # dictionary_OT = Dictionary(common_corpus[:len(corpus_each[0])])
     OT_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[:len(corpus_each[0])]]
     NT_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[len(corpus_each[0]):(len(corpus_each[0])+len(corpus_each[1]))]]
     Q_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[(len(corpus_each[0])+len(corpus_each[1])):]]
@@ -298,13 +298,24 @@ def lda(docs):
     NT_avg_topic_score = avg_score_topic(NT_topic_prob)
     Q_avg_topic_score = avg_score_topic(Q_topic_prob)
 
+    print(OT_topic_prob)
+    print(NT_topic_prob)
+    print(Q_topic_prob)
+
+    OT_max = max(OT_avg_topic_score)
+    # print(OT_max)
+    # print(lda.print_topic(9))
     print(OT_avg_topic_score)
+    print(max(OT_avg_topic_score))
     print(NT_avg_topic_score)
+    print(max(NT_avg_topic_score))
     print(Q_avg_topic_score)
+    print(max(Q_avg_topic_score))
 
-    # print(lda.print_topics())
+    for topic in lda.print_topics(num_topics=3, num_words=10):
+        print(topic)
 
-docs, classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/train_and_dev.tsv")
+docs, classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/test.tsv")
 
 # class_word_count, total_words = dict_count(classes)
 
