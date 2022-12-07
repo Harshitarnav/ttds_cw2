@@ -1,5 +1,6 @@
 import collections
 import csv
+import math
 
 def retrieved_docs(filename):
 
@@ -22,7 +23,7 @@ def relevant_docs(filename):
         reader = csv.reader(f, delimiter=',')
         next(reader)
         for row in reader:
-            results[int(row[0])][int(row[1])] = row[2:]
+            results[int(row[0])][int(row[1])] = int(row[2])
         
     return results
 
@@ -52,31 +53,44 @@ def AP(retrieved_docs, relevant_docs):
             ap += 0
 
     return ap/len(relevant_docs)
+
+def nDCG(retrieved_docs, relevant_docs):
+
+    rel1 = relevant_docs[int(retrieved_docs[0][0])] if retrieved_docs[0][0] in relevant_docs.keys() else 0
+    DCG = rel1
+    for i in retrieved_docs[1:]:
+        if int(i[0]) in relevant_docs.keys():
+            DCG += relevant_docs[int(i[0])]/math.log2(int(i[1]))
+    
+    # relevant_sort = {k: v for k, v in sorted(relevant_docs.items(), key=lambda item: item[1], reverse = True)}
+
+    irel = list(relevant_docs.values())
+
+    iDCG = irel[0]
+    for idx, rel in enumerate(irel[1:]):
+        iDCG += rel/math.log2(idx + 2)
+        
+    nDCG = DCG/iDCG
+
+    return nDCG
         
 sys_retrieved_doc = retrieved_docs("/Users/arnav/Desktop/Y4/ttds/cw2/system_results.csv")
 relevant_doc = relevant_docs("/Users/arnav/Desktop/Y4/ttds/cw2/qrels.csv")
 
 for system,retrieved_doc in sys_retrieved_doc.items():
-    # print(system, retrieved_doc.keys())
     print("//////////////////////////////////////////////////////////")
-
     for query,doc in retrieved_doc.items():
-        # print(retrieved_doc.keys())
 
-        retrieved_first_10 = doc[:10] 
-        retrieved_first_20 = doc[:20] 
-        retrieved_first_50 = doc[:50] 
+        precision_10 = precision(Extract(doc[:10]), relevant_doc[query])
 
-        precision_10 = precision(Extract(retrieved_first_10), relevant_doc[query])
-
-        recall_50 = recall(Extract(retrieved_first_50), relevant_doc[query])
-        # print(recall_50)
+        recall_50 = recall(Extract(doc[:50]), relevant_doc[query])
 
         cut_off = doc[:len(relevant_doc[query])]
         r_precision = precision(Extract(cut_off), relevant_doc[query])
 
         ap = AP(doc, relevant_doc[query])
-        print(ap)
+        
+        nDCG_10 = nDCG(doc[:10], relevant_doc[query])
+        nDCG_20 = nDCG(doc[:20], relevant_doc[query])
 
-        
-        
+        print(nDCG_20)
