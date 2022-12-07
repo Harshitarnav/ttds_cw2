@@ -239,7 +239,7 @@ def mi_chi(class_word_count, total_words):
     return (classes_MI, classes_chi)
 
 
-classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/test.tsv")
+classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/train_and_dev.tsv")
 
 class_word_count, total_words = dict_count(classes)
 
