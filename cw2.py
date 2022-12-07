@@ -170,7 +170,7 @@ def tsv_reader(filename):
             #     classes[row[0]] += text
             # else:
             #     classes.setdefault(row[0], text)
-    print(docs)
+    print(classes)
     return docs, classes
 
 # def dict_count(classes):
@@ -202,7 +202,7 @@ def MI_calc(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N):
 
 def chi_sq_calc(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N):
     # return ((N_10 + N_11 + N_01 + N_00) * np.power((N_11 * N_00 - N_10 * N_01),2)) / ((N_01 + N_11) * (N_10 + N_11) * (N_10 + N_00) * (N_01 + N_00))
-    return (((N * ((N_11 * N_00) - (N_10 * N_01))^2) / (N1_ * N_1 * N0_ * N0_)) if (N1_ * N_1 * N0_ * N0_) != 0 else 0)
+    return (((N * ((N_11 * N_00) - (N_10 * N_01))**2) / (N1_ * N_1 * N0_ * N0_)) if (N1_ * N_1 * N0_ * N0_) != 0 else 0)
 
 def mi_chi(docs, classes):
 
