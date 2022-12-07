@@ -1,6 +1,7 @@
 import collections
 import csv
 import numpy as np
+import math
 import re
 from nltk.stem import PorterStemmer
 
@@ -154,84 +155,101 @@ def preprocessing(text):
 
 def tsv_reader(filename):
 
-    classes = collections.defaultdict(lambda: collections.defaultdict(list))
+    classes = collections.defaultdict(lambda: collections.defaultdict(int))
+    docs = collections.defaultdict(list)
     with open(filename, 'r') as f:
         reader = csv.reader(f, delimiter='\t')
-        # lines = f.readlines()
-        # print(next(reader))
-        # print(a)
-        text = []
+        vocab = []
         for row in reader:
-            # claus, text = line.split('\t')
-            if row[0] in classes:
-                text = preprocessing(row[1]) 
-                classes[row[0]] += text
-            else:
-                classes.setdefault(row[0], text)
-    # print(classes)
-    return classes
+            docs[row[0]].append(row[1])
+            vocab = preprocessing(row[1])
+            for token in set(vocab):
+                classes[row[0]][token] += 1 
+            # if row[0] in classes:
+            #     text = preprocessing(row[1]) 
+            #     classes[row[0]] += text
+            # else:
+            #     classes.setdefault(row[0], text)
+    print(docs)
+    return docs, classes
 
-def dict_count(classes):
+# def dict_count(classes):
 
-    # print(classes.values())
-    total = []
-    count_ele_class = {}
-    for claus, text in classes.items():
-        total += text
+#     # print(classes.values())
+#     total = []
+#     count_ele_class = {}
+#     for claus, text in classes.items():
+#         total += text
 
-        count_ele_class[claus] = dict(collections.Counter(text))
+#         count_ele_class[claus] = dict(collections.Counter(text))
         
-    tots = dict(collections.Counter(total))
-    total = sum(list(tots.values()))
+#     tots = dict(collections.Counter(total))
+#     total = sum(list(tots.values()))
     
-    return count_ele_class, total
+#     return count_ele_class, total
 
 def MI_calc(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N):
-    t1 = 0 if N_11 == 0 else (N_11/N * np.log2((N * N_11)/(N1_ * N_1)))
-    t2 = 0 if N_10 == 0 else (N_10/N * np.log2((N * N_10)/(N1_ * N_0)))
-    t3 = 0 if N_01 == 0 else (N_01/N * np.log2((N * N_01)/(N0_ * N_1)))
-    t4 = 0 if N_00 == 0 else (N_00/N * np.log2((N*N_00)/(N0_ * N_0)))
+    t1 = (N_11/N * math.log2((N * N_11)/(N1_ * N_1))) if (N * N_11) != 0 and (N1_ * N_1) != 0 else 0
+    t2 = (N_10/N * math.log2((N * N_10)/(N1_ * N_0))) if (N * N_10) != 0 and (N1_ * N_0) != 0 else 0
+    t3 = (N_01/N * math.log2((N * N_01)/(N0_ * N_1))) if (N * N_01) != 0 and (N0_ * N_1) != 0 else 0
+    t4 = (N_00/N * math.log2((N * N_00)/(N0_ * N_0))) if (N * N_00) != 0 and (N0_ * N_0) != 0 else 0
+
+    # t2 = 0 if N_10 == 0 else (N_10/N * math.log2((N * N_10)/(N1_ * N_0)))
+    # t3 = 0 if N_01 == 0 else (N_01/N * math.log2((N * N_01)/(N0_ * N_1)))
+    # t4 = 0 if N_00 == 0 else (N_00/N * math.log2((N * N_00)/(N0_ * N_0)))
 
     return t1+t2+t3+t4
 
-def chi_sq_calc(N_11, N_10, N_00, N_01, N):
-    return ((N_10 + N_11 + N_01 + N_00) * np.power((N_11 * N_00 - N_10 * N_01),2)) / ((N_01 + N_11) * (N_10 + N_11) * (N_10 + N_00) * (N_01 + N_00))
+def chi_sq_calc(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N):
+    # return ((N_10 + N_11 + N_01 + N_00) * np.power((N_11 * N_00 - N_10 * N_01),2)) / ((N_01 + N_11) * (N_10 + N_11) * (N_10 + N_00) * (N_01 + N_00))
+    return (((N * ((N_11 * N_00) - (N_10 * N_01))^2) / (N1_ * N_1 * N0_ * N0_)) if (N1_ * N_1 * N0_ * N0_) != 0 else 0)
 
-def mi_chi(class_word_count, total_words):
+def mi_chi(docs, classes):
 
-    x = []
     classes_MI = {}
     classes_chi = {}
-    for classes, words in class_word_count.items():
+    for claus, words in classes.items():
 
-        total_in_class = sum(list(words.values()))
+        total_in_class = len(docs[claus])
 
         MI = collections.defaultdict(dict)
         chi_sq = collections.defaultdict(dict)
-        print(classes)
         
         for word, count in words.items():
+            
+            N = sum(len(doc) for doc in docs.values())
+            N_11 = count
 
-            for claus, words in class_word_count.items():
-                if claus != classes:
-                    if word in words.keys():
-                        x.append(words[word])
+            x = []
+            for claus1, words1 in classes.items():
+                if claus1 != claus:
+                    if word in words1.keys():
+                        x.append(words1[word])
+            
             
             N_10 = sum(x)
-            N_11 = count
             N_01 = total_in_class - N_11
-            N_00 = total_words - N_11 - N_10 - N_01
-            N = total_words
+
+            a = 0
+            for claus2, words2, in docs.items():
+                if claus2 != claus:
+                    a += len(words2)
+
+            N_00 = a - N_10
+            
 
             N1_ = N_11 + N_10
             N_1 = N_01 + N_11
             N0_ = N_01 + N_00
             N_0 = N_00 + N_10
 
+            print(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N)
+
+
             # MI[classes][word] = (N_11/N * np.log2((N * N_11)/(N1_ * N_1))) + (N_01/N * np.log2((N * N_01)/(N0_ * N_1))) + (N_10/N * np.log2((N * N_10)/(N1_ * N_0))) + (N_00/N * np.log2((N*N_00)/(N0_ * N_0)))
-            MI[classes][word] = MI_calc(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N)
+            MI[claus][word] = MI_calc(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N)
             # chi_sq[classes][word] = ((N_10 + N_11 + N_01 + N_00) * (N_11*N_00 - N_10*N_01)^2)/((N_01 + N_11)*(N_10 + N_11)*(N_10 + N_00)*(N_01 + N_00))
-            chi_sq[classes][word] = chi_sq_calc(N_11, N_10, N_00, N_01, N)
+            chi_sq[claus][word] = chi_sq_calc(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N)
         
         classes_MI.update(dict(MI))
         classes_chi.update(dict(chi_sq))
@@ -239,9 +257,14 @@ def mi_chi(class_word_count, total_words):
     return (classes_MI, classes_chi)
 
 
-classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/train_and_dev.tsv")
+docs, classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/train_and_dev.tsv")
 
-class_word_count, total_words = dict_count(classes)
+# class_word_count, total_words = dict_count(classes)
 
-MI, chi = mi_chi(class_word_count, total_words)
-print(chi)
+MI, chi = mi_chi(docs, classes)
+print(max(list(chi['OT'].values())))
+print(min(list(chi['OT'].values())))
+print(max(list(chi['NT'].values())))
+print(min(list(chi['NT'].values())))
+print(max(list(chi['Quran'].values())))
+print(min(list(chi['Quran'].values())))
