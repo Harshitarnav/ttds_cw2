@@ -299,10 +299,12 @@ def lda(docs):
     Q_avg_topic_score = avg_score_topic(Q_topic_prob)
 
     print(OT_avg_topic_score)
+    print(NT_avg_topic_score)
+    print(Q_avg_topic_score)
 
-    print(lda.print_topics())
+    # print(lda.print_topics())
 
-docs, classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/test.tsv")
+docs, classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/train_and_dev.tsv")
 
 # class_word_count, total_words = dict_count(classes)
 
