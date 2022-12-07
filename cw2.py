@@ -4,6 +4,8 @@ import numpy as np
 import math
 import re
 from nltk.stem import PorterStemmer
+from gensim.corpora.dictionary import Dictionary
+from gensim.models.ldamodel import LdaModel
 
 def retrieved_docs(filename):
 
@@ -161,8 +163,9 @@ def tsv_reader(filename):
         reader = csv.reader(f, delimiter='\t')
         vocab = []
         for row in reader:
-            docs[row[0]].append(row[1])
             vocab = preprocessing(row[1])
+            docs[row[0]].append(vocab)
+            # vocab = preprocessing(row[1])
             for token in set(vocab):
                 classes[row[0]][token] += 1 
             # if row[0] in classes:
@@ -170,7 +173,7 @@ def tsv_reader(filename):
             #     classes[row[0]] += text
             # else:
             #     classes.setdefault(row[0], text)
-    print(classes)
+    print(docs)
     return docs, classes
 
 # def dict_count(classes):
@@ -243,7 +246,7 @@ def mi_chi(docs, classes):
             N0_ = N_01 + N_00
             N_0 = N_00 + N_10
 
-            print(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N)
+            # print(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N)
 
 
             # MI[classes][word] = (N_11/N * np.log2((N * N_11)/(N1_ * N_1))) + (N_01/N * np.log2((N * N_01)/(N0_ * N_1))) + (N_10/N * np.log2((N * N_10)/(N1_ * N_0))) + (N_00/N * np.log2((N*N_00)/(N0_ * N_0)))
@@ -256,15 +259,60 @@ def mi_chi(docs, classes):
 
     return (classes_MI, classes_chi)
 
+def avg_score_topic(topic_probs):
 
-docs, classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/train_and_dev.tsv")
+    avg_score = []
+    for topic in range(20):
+        topicwise_sum = 0
+        for doc in topic_probs:
+            topicwise_sum += doc[topic][1]
+        avg_score.append(topicwise_sum/len(topic_probs))
+    return avg_score
+
+def lda(docs):
+    # print(Dictionary(docs.values()))
+    # for doc in docs.values():
+    #     [d.replace('\'', '\"') for d in doc]
+    # print(doc)
+    # common_texts_sent = [t for doc in docs.values() for t in doc]
+    common_texts = [t for doc in docs.values() for t in doc]
+    # print(common_texts)
+    common_dictionary = Dictionary(common_texts)
+    print(len(common_dictionary))
+    common_corpus = [common_dictionary.doc2bow(text) for text in common_texts]
+    lda = LdaModel(common_corpus, num_topics = 20, id2word = common_dictionary, random_state=42)
+    # print(lda)
+    corpus_each = list(docs.values())
+    print(len(common_corpus))
+    print(len(common_corpus[:len(corpus_each[0])]))
+    print(len(common_corpus[len(corpus_each[0]):(len(corpus_each[0])+len(corpus_each[1]))]))
+    print(len(common_corpus[(len(corpus_each[0])+len(corpus_each[1])):]))
+    # dictionary_OT = Dictionary(corpus_each[0])
+    OT_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[:len(corpus_each[0])]]
+    NT_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[len(corpus_each[0]):(len(corpus_each[0])+len(corpus_each[1]))]]
+    Q_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[(len(corpus_each[0])+len(corpus_each[1])):]]
+
+    # print(len(OT_topic_prob))
+
+    OT_avg_topic_score = avg_score_topic(OT_topic_prob)
+    NT_avg_topic_score = avg_score_topic(NT_topic_prob)
+    Q_avg_topic_score = avg_score_topic(Q_topic_prob)
+
+    print(OT_avg_topic_score)
+
+    print(lda.print_topics())
+
+docs, classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/test.tsv")
 
 # class_word_count, total_words = dict_count(classes)
 
 MI, chi = mi_chi(docs, classes)
-print(max(list(chi['OT'].values())))
-print(min(list(chi['OT'].values())))
-print(max(list(chi['NT'].values())))
-print(min(list(chi['NT'].values())))
-print(max(list(chi['Quran'].values())))
-print(min(list(chi['Quran'].values())))
+# print(MI)
+
+lda_out = lda(docs)
+# print(max(list(chi['OT'].values())))
+# print(min(list(chi['OT'].values())))
+# print(max(list(chi['NT'].values())))
+# print(min(list(chi['NT'].values())))
+# print(max(list(chi['Quran'].values())))
+# print(min(list(chi['Quran'].values())))
