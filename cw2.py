@@ -283,6 +283,7 @@ def lda(docs):
     lda = LdaModel(common_corpus, num_topics = 20, id2word = common_dictionary, random_state=42)
     # print(lda)
     corpus_each = list(docs.values())
+    # print(len(corpus_each))
     # print(len(common_corpus))
     # print(len(common_corpus[:len(corpus_each[0])]))
     # print(len(common_corpus[len(corpus_each[0]):(len(corpus_each[0])+len(corpus_each[1]))]))
@@ -298,24 +299,45 @@ def lda(docs):
     NT_avg_topic_score = avg_score_topic(NT_topic_prob)
     Q_avg_topic_score = avg_score_topic(Q_topic_prob)
 
-    print(OT_topic_prob)
-    print(NT_topic_prob)
-    print(Q_topic_prob)
+    # print(OT_topic_prob)
+    # print(NT_topic_prob)
+    # print(Q_topic_prob)
 
-    OT_max = max(OT_avg_topic_score)
+    # OT_max = max(OT_avg_topic_score)
     # print(OT_max)
     # print(lda.print_topic(9))
-    print(OT_avg_topic_score)
-    print(max(OT_avg_topic_score))
-    print(NT_avg_topic_score)
-    print(max(NT_avg_topic_score))
-    print(Q_avg_topic_score)
-    print(max(Q_avg_topic_score))
+    # print(OT_avg_topic_score)
+    # print(max(OT_avg_topic_score))
+    # print(NT_avg_topic_score)
+    # print(max(NT_avg_topic_score))
+    # print(Q_avg_topic_score)
+    # print(max(Q_avg_topic_score))
+    # OT_sorted_topics = sorted(list(zip(range(20),OT_avg_topic_score)), key= lambda x: x[1], reverse=True)
+    # print(OT_sorted_topics)
 
-    for topic in lda.print_topics(num_topics=3, num_words=10):
-        print(topic)
+    maxm = [("OT", OT_avg_topic_score.index(max(OT_avg_topic_score)),max(OT_avg_topic_score)), 
+    ("NT", NT_avg_topic_score.index(max(NT_avg_topic_score)),max(NT_avg_topic_score)), ("Quran", Q_avg_topic_score.index(max(Q_avg_topic_score)),max(Q_avg_topic_score))]
 
-docs, classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/test.tsv")
+    for t in maxm:
+        print(f'Topic: {t[2]} for {t[0]}')
+        print(lda.print_topic(t[1]))
+    # for t in :
+    #     print('OT')
+    #     print(f'Topic: {t[0]} at {t[1]}')
+    #     print(lda.print_topic(t[0]))
+    # for t in NT_sorted_topics[0]:
+    #     print('OT')
+    #     print(f'Topic: {t[0]} at {t[1]}')
+    #     print(lda.print_topic(t[0]))
+    # for t in Q_sorted_topics[0]:
+    #     print('OT')
+    #     print(f'Topic: {t[0]} at {t[1]}')
+    #     print(lda.print_topic(t[0]))
+
+    # for topic in lda.print_topics(num_topics=3, num_words=10):
+    #     print(topic)
+
+docs, classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/train_and_dev.tsv")
 
 # class_word_count, total_words = dict_count(classes)
 
