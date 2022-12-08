@@ -6,6 +6,7 @@ import math
 import re
 from scipy.sparse import dok_matrix
 import sklearn
+from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 from nltk.stem import PorterStemmer
 from gensim.corpora.dictionary import Dictionary
@@ -250,7 +251,7 @@ def lda(docs):
         print(f'Topic: {t[2]} for {t[0]}')
         print(lda.print_topic(t[1], 10))
 
-docs, classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/test.tsv")
+docs, classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/train_and_dev.tsv")
 
 MI, chi = mi_chi(docs, classes)
 
@@ -262,27 +263,27 @@ def preprocess(text):
     #removing all the links
     text = re.sub(r'^https?:\/\/.*[\r\n]*', '', text, flags=re.MULTILINE)
 
-    from string import punctuation
-    # Eliminate duplicate whitespaces using wildcards
-    text = re.sub('\s+', ' ', text)
-    # checks for all the alphanumeric characters, spaces and punctuations and keeps them in the corpus
-    text = ''.join(t for t in text if (t.isalnum() or t.isspace() or t in punctuation))
-    # replaces all the punctiations with spaces
-    punctuation1 = punctuation.replace("\'",'')
-    regex = re.compile('[%s]' % re.escape(punctuation1))
-    text = regex.sub(' ', text)
-    # design choice to replace all punctuations with space but apostophe with no-space('')
-    text = re.sub("\'",'',text)
-    # splits the entire text at blank spaces
+    # from string import punctuation
+    # # Eliminate duplicate whitespaces using wildcards
+    # text = re.sub('\s+', ' ', text)
+    # # checks for all the alphanumeric characters, spaces and punctuations and keeps them in the corpus
+    # text = ''.join(t for t in text if (t.isalnum() or t.isspace() or t in punctuation))
+    # # replaces all the punctiations with spaces
+    # punctuation1 = punctuation.replace("\'",'')
+    # regex = re.compile('[%s]' % re.escape(punctuation1))
+    # text = regex.sub(' ', text)
+    # # design choice to replace all punctuations with space but apostophe with no-space('')
+    # text = re.sub("\'",'',text)
+    # # splits the entire text at blank spaces
     text = text.split()
     
-    # converts the entire vocabulary into lower case
-    words = []
-    for word in text:
-        words.append(word.lower())
+    # # converts the entire vocabulary into lower case
+    # words = []
+    # for word in text:
+    #     words.append(word.lower())
 
     
-    return(words)
+    return(text)
 
 def baseline(train_dev):
     train_dev_shuffled = train_dev.sample(frac=1)
@@ -328,31 +329,42 @@ def categoryid(data):
     return E
 
 train_dev = pd.read_csv("/Users/arnav/Desktop/Y4/ttds/cw2/train.tsv", sep = "\t")
-# print(train_dev)
 
 # 80 20 split
-train, test = train_test_split(baseline(train_dev), test_size=0.2)
+train, dev = train_test_split(baseline(train_dev), test_size=0.2)
 
 Xtrain = train["preprocessed_tweet"].tolist()
-Xtest = test["preprocessed_tweet"].tolist()
+Xdev = dev["preprocessed_tweet"].tolist()
 Ytrain = train["sentiment"].tolist()
-Ytest= test["sentiment"].tolist()
+Ydev= dev["sentiment"].tolist()
 
 vocab_id = vocabid(Xtrain)
+
 sparse_matrix_train = bow_matrix(Xtrain, vocab_id)
-
 category_id_train = categoryid(Ytrain)
-print(1)
 model = sklearn.svm.SVC(C=1000, random_state=42)
-print(2)
 model.fit(sparse_matrix_train, category_id_train)
-print(3)
 
+sparse_matrix_dev = bow_matrix(Xdev, vocab_id)
+y_train_preds = model.predict(sparse_matrix_train)
+y_dev_preds = model.predict(sparse_matrix_dev)
+
+category_id_dev = categoryid(Ydev)
+
+test = pd.read_csv("/Users/arnav/Desktop/Y4/ttds/cw2/test.tsv", sep = "\t")
+test_baseline = baseline(test)
+print(test_baseline)
+Xtest = test_baseline["preprocessed_tweet"].tolist()
+Ytest = test_baseline["sentiment"].tolist()
 sparse_matrix_test = bow_matrix(Xtest, vocab_id)
-print(4)
-y_dev_preds = model.predict(sparse_matrix_test)
-print(y_dev_preds)
+category_id_test = categoryid(Ytest)
+y_test_preds = model.predict(sparse_matrix_test)
+
+print(classification_report(category_id_dev, y_dev_preds))
+print(classification_report(category_id_train, y_train_preds))
+print(classification_report(category_id_test, y_test_preds))
 
 with open('ainvayi.txt','w') as f:
     writer = csv.writer(f, delimiter=",")
     writer.writerow(y_dev_preds)
+    writer.writerow(category_id_dev)
