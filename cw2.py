@@ -1,8 +1,12 @@
 import collections
 import csv
 import numpy as np
+import pandas as pd
 import math
 import re
+from scipy.sparse import dok_matrix
+import sklearn
+from sklearn.model_selection import train_test_split
 from nltk.stem import PorterStemmer
 from gensim.corpora.dictionary import Dictionary
 from gensim.models.ldamodel import LdaModel
@@ -189,7 +193,6 @@ def mi_chi(docs, classes):
                     if word in words1.keys():
                         x.append(words1[word])
             
-            
             N_10 = sum(x)
             N_01 = total_in_class - N_11
 
@@ -253,3 +256,103 @@ MI, chi = mi_chi(docs, classes)
 
 lda_out = lda(docs)
 
+
+def preprocess(text):
+
+    #removing all the links
+    text = re.sub(r'^https?:\/\/.*[\r\n]*', '', text, flags=re.MULTILINE)
+
+    from string import punctuation
+    # Eliminate duplicate whitespaces using wildcards
+    text = re.sub('\s+', ' ', text)
+    # checks for all the alphanumeric characters, spaces and punctuations and keeps them in the corpus
+    text = ''.join(t for t in text if (t.isalnum() or t.isspace() or t in punctuation))
+    # replaces all the punctiations with spaces
+    punctuation1 = punctuation.replace("\'",'')
+    regex = re.compile('[%s]' % re.escape(punctuation1))
+    text = regex.sub(' ', text)
+    # design choice to replace all punctuations with space but apostophe with no-space('')
+    text = re.sub("\'",'',text)
+    # splits the entire text at blank spaces
+    text = text.split()
+    
+    # converts the entire vocabulary into lower case
+    words = []
+    for word in text:
+        words.append(word.lower())
+
+    
+    return(words)
+
+def baseline(train_dev):
+    train_dev_shuffled = train_dev.sample(frac=1)
+
+    preprocessed_tweet = []
+    for idx, i in train_dev_shuffled.iterrows():
+        # preprocess(i["tweet"])
+        preprocessed_tweet.append(preprocess(i["tweet"]))
+    train_dev_shuffled["preprocessed_tweet"] = preprocessed_tweet
+    # print(train_dev_shuffled)
+    return train_dev_shuffled
+
+def vocabid(train):
+    unique_tokens = []
+    for tweet in train:
+        unique_tokens += tweet
+    unique_tokens = set(unique_tokens)
+    # print(len(unique_tokens))
+
+    vocab_id = {}
+    for idx, tokens in enumerate(unique_tokens):
+        vocab_id[tokens] = idx
+    # print(vocab_id)
+    return vocab_id
+ 
+def bow_matrix(data, id):
+    oov_index = len(id)
+    S = dok_matrix((len(data), len(id)+1))
+    for doc_id, doc in enumerate(data):
+        for word in doc:
+            S[doc_id, id.get(word, oov_index)] += 1
+    
+    return S
+
+def categoryid(data):
+    category_id = {}
+    for idx, category in enumerate(set(data)):
+        category_id[category] = idx
+
+    E = [category_id[category] for category in data]
+    # print(category_id)
+    # print(E)
+    return E
+
+train_dev = pd.read_csv("/Users/arnav/Desktop/Y4/ttds/cw2/train.tsv", sep = "\t")
+# print(train_dev)
+
+# 80 20 split
+train, test = train_test_split(baseline(train_dev), test_size=0.2)
+
+Xtrain = train["preprocessed_tweet"].tolist()
+Xtest = test["preprocessed_tweet"].tolist()
+Ytrain = train["sentiment"].tolist()
+Ytest= test["sentiment"].tolist()
+
+vocab_id = vocabid(Xtrain)
+sparse_matrix_train = bow_matrix(Xtrain, vocab_id)
+
+category_id_train = categoryid(Ytrain)
+print(1)
+model = sklearn.svm.SVC(C=1000, random_state=42)
+print(2)
+model.fit(sparse_matrix_train, category_id_train)
+print(3)
+
+sparse_matrix_test = bow_matrix(Xtest, vocab_id)
+print(4)
+y_dev_preds = model.predict(sparse_matrix_test)
+print(y_dev_preds)
+
+with open('ainvayi.txt','w') as f:
+    writer = csv.writer(f, delimiter=",")
+    writer.writerow(y_dev_preds)
