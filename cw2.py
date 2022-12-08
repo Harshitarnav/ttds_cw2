@@ -259,6 +259,11 @@ def mi_chi(docs, classes):
 
     return (classes_MI, classes_chi)
 
+# def topic_prob(lda, corpus):
+
+#     for text in corpus:
+#         print(lda.get_document_topics(bow = text , minimum_probability = 0))
+
 def avg_score_topic(topic_probs):
 
     avg_score = []
@@ -289,17 +294,26 @@ def lda(docs):
     # print(len(common_corpus[len(corpus_each[0]):(len(corpus_each[0])+len(corpus_each[1]))]))
     # print(len(common_corpus[(len(corpus_each[0])+len(corpus_each[1])):]))
     # dictionary_OT = Dictionary(common_corpus[:len(corpus_each[0])])
+    # OT_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[:len(corpus_each[0])]]
+    # OT_topic_prob = topic_prob(lda, common_corpus[:len(corpus_each[0])])
     OT_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[:len(corpus_each[0])]]
     NT_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[len(corpus_each[0]):(len(corpus_each[0])+len(corpus_each[1]))]]
     Q_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[(len(corpus_each[0])+len(corpus_each[1])):]]
 
-    # print(len(OT_topic_prob))
+    # sorting each class
+
+    # for i in OT_topic_prob:
+    #     print(len(i))
+    #     for j in range(len(i)):
+
+    # OT_topic_prob_sort = list(map(list, zip(*OT_topic_prob[1])))
+    # print(OT_topic_prob_sort)
 
     OT_avg_topic_score = avg_score_topic(OT_topic_prob)
     NT_avg_topic_score = avg_score_topic(NT_topic_prob)
     Q_avg_topic_score = avg_score_topic(Q_topic_prob)
 
-    # print(OT_topic_prob)
+    # print(OT_avg_topic_score)
     # print(NT_topic_prob)
     # print(Q_topic_prob)
 
@@ -320,7 +334,7 @@ def lda(docs):
 
     for t in maxm:
         print(f'Topic: {t[2]} for {t[0]}')
-        print(lda.print_topic(t[1]))
+        print(lda.print_topic(t[1], 10))
     # for t in :
     #     print('OT')
     #     print(f'Topic: {t[0]} at {t[1]}')
@@ -337,7 +351,7 @@ def lda(docs):
     # for topic in lda.print_topics(num_topics=3, num_words=10):
     #     print(topic)
 
-docs, classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/train_and_dev.tsv")
+docs, classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/test.tsv")
 
 # class_word_count, total_words = dict_count(classes)
 
