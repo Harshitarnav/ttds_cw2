@@ -12,6 +12,7 @@ from nltk.stem import PorterStemmer
 from gensim.corpora.dictionary import Dictionary
 from gensim.models.ldamodel import LdaModel
 
+#TASK 1
 def retrieved_docs(filename):
 
     results = collections.defaultdict(lambda: collections.defaultdict(list))
@@ -109,6 +110,7 @@ with open('ir_eval.csv', 'w') as result:
         round(means[system-1][3],3),round(means[system-1][4],3),round(means[system-1][5],3)])
 
 
+#TASK 2
 # preprosses the input text
 def preprocessing(text):
     from string import punctuation
@@ -252,12 +254,11 @@ def lda(docs):
         print(lda.print_topic(t[1], 10))
 
 docs, classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/ot_nt_q.tsv")
-
 MI, chi = mi_chi(docs, classes)
-
 lda_out = lda(docs)
 
 
+# TASK 3
 def preprocess(text):
 
     #removing all the links
