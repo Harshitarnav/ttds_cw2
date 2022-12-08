@@ -246,16 +246,26 @@ def lda(docs):
     NT_avg_topic_score = avg_score_topic(NT_topic_prob)
     Q_avg_topic_score = avg_score_topic(Q_topic_prob)
 
+    print(OT_avg_topic_score)
+    print(NT_avg_topic_score)
+    print(Q_avg_topic_score)
+
     maxm = [("OT", OT_avg_topic_score.index(max(OT_avg_topic_score)),max(OT_avg_topic_score)), 
     ("NT", NT_avg_topic_score.index(max(NT_avg_topic_score)),max(NT_avg_topic_score)), ("Quran", Q_avg_topic_score.index(max(Q_avg_topic_score)),max(Q_avg_topic_score))]
 
     for t in maxm:
-        print(f'Topic: {t[2]} for {t[0]}')
+        print(f'Topic: {t[2]} for {t[0]} for topic {t[1]}')
         print(lda.print_topic(t[1], 10))
 
 docs, classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/ot_nt_q.tsv")
 MI, chi = mi_chi(docs, classes)
 lda_out = lda(docs)
+print(max(list(chi['OT'].values())))
+print(min(list(chi['OT'].values())))
+print(max(list(chi['NT'].values())))
+print(min(list(chi['NT'].values())))
+print(max(list(chi['Quran'].values())))
+print(min(list(chi['Quran'].values())))
 
 
 # TASK 3
