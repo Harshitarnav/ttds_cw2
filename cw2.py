@@ -251,7 +251,7 @@ def lda(docs):
         print(f'Topic: {t[2]} for {t[0]}')
         print(lda.print_topic(t[1], 10))
 
-docs, classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/train_and_dev.tsv")
+docs, classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/ot_nt_q.tsv")
 
 MI, chi = mi_chi(docs, classes)
 
