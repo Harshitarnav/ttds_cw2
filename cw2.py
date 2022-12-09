@@ -17,120 +17,143 @@ from gensim.models.ldamodel import LdaModel
 # import scipy.stats as stats
 
 #TASK 1
-def retrieved_docs(filename):
 
-    results = collections.defaultdict(lambda: collections.defaultdict(list))
-    with open(filename, 'r') as f:
-        reader = csv.reader(f, delimiter=',')
-        next(reader)
-        for row in reader:
-            results[int(row[0])][int(row[1])].append(row[2:])
-        
-    return results
+# This is the section for IR evaluation where different measures like precision, recall, r-precision, Average precision and 
+# Normalized Dsitributive Cumulative Gain was calculated on 6 different systems with 10 query each
+class EVAL:
 
-def Extract(lst):
-    return [int(item[0]) for item in lst]
+    # converts the system results file into an embedded dictionary of system, query number and a list of document number,
+    # rank of the particular doc and score respectively
+    def retrieved_docs(filename):
 
-def relevant_docs(filename):
-
-    results = collections.defaultdict(lambda: collections.defaultdict(list))
-    with open(filename, 'r') as f:
-        reader = csv.reader(f, delimiter=',')
-        next(reader)
-        for row in reader:
-            results[int(row[0])][int(row[1])] = int(row[2])
-        
-    return results
-
-def precision(retrieved_docs, relevant_docs):
-    relevant_retrieved = relevant_docs.keys() & retrieved_docs
-    precision = len(relevant_retrieved)/len(retrieved_docs)
-    return round(precision, 3)
-
-def recall(retrieved_docs, relevant_docs):
-    relevant_retrieved = relevant_docs.keys() & retrieved_docs
-    recall = len(relevant_retrieved)/len(relevant_docs)
-    return round(recall, 3)
-
-def AP(retrieved_docs, relevant_docs):
-    ap = 0 
-
-    for k in retrieved_docs:
-        if int(k[0]) in relevant_docs.keys():
-            precision_k = precision(Extract(retrieved_docs[:int(k[1])]), relevant_docs)
-            ap += precision_k * 1
-        else:
-            ap += 0
-
-    return round(ap/len(relevant_docs), 3)
-
-def nDCG(retrieved_docs, relevant_docs):
-
-    rel1 = relevant_docs[int(retrieved_docs[0][0])] if retrieved_docs[0][0] in relevant_docs.keys() else 0
-    DCG = rel1
-    for i in retrieved_docs[1:]:
-        if int(i[0]) in relevant_docs.keys():
-            DCG += relevant_docs[int(i[0])]/np.log2(int(i[1]))
-    
-    irel = list(relevant_docs.values())
-
-    iDCG = irel[0]
-    for idx, rel in enumerate(irel[1:]):
-        iDCG += rel/np.log2(idx + 2)
-        
-    nDCG = DCG/iDCG
-
-    return round(nDCG, 3)
-
-with open('ir_eval.csv', 'w') as result:
-    sys_retrieved_doc = retrieved_docs("/Users/arnav/Desktop/Y4/ttds/cw2/system_results.csv")
-    relevant_doc = relevant_docs("/Users/arnav/Desktop/Y4/ttds/cw2/qrels.csv")
-    writer = csv.writer(result, delimiter=",")
-    writer.writerow(['system_number','query_number','P@10','R@50','r-precision','AP','nDCG@10','nDCG@20'])
-
-    means = []
-    for system,retrieved_doc in sys_retrieved_doc.items():
-        for_mean = []
-        # Ps = []
-        # rs = []
-        # rps = []
-        # aps = []
-        # d10 = []
-        # d20 = []
-        for query,doc in retrieved_doc.items():
-
-            precision_10 = precision(Extract(doc[:10]), relevant_doc[query])
-
-            recall_50 = recall(Extract(doc[:50]), relevant_doc[query])
-
-            cut_off = doc[:len(relevant_doc[query])]
-            r_precision = precision(Extract(cut_off), relevant_doc[query])
-
-            ap = AP(doc, relevant_doc[query])
+        results = collections.defaultdict(lambda: collections.defaultdict(list))
+        with open(filename, 'r') as f:
+            reader = csv.reader(f, delimiter=',')
+            next(reader)
+            for row in reader:
+                results[int(row[0])][int(row[1])].append(row[2:])
             
-            nDCG_10 = nDCG(doc[:10], relevant_doc[query])
-            nDCG_20 = nDCG(doc[:20], relevant_doc[query])
+        return results
 
-            writer.writerow([system,query,precision_10,recall_50,r_precision,ap,nDCG_10,nDCG_20])
+    # helper function to extract the doc number of from the list of document number, rank of the particular doc and score of a particular system
+    def Extract(lst):
+        return [int(item[0]) for item in lst]
 
-            for_mean.append([precision_10,recall_50,r_precision,ap,nDCG_10,nDCG_20])
+    # converts the qrels file into an embedded dictionary of query number, doc number and the relevance of each doc for that query
+    def relevant_docs(filename):
 
-            # Ps.append(precision_10)
-            # rs.append(recall_50)
-            # rps.append(r_precision)
-            # aps.append(ap)
-            # d10.append(nDCG_10)
-            # d20.append(nDCG_20)
+        results = collections.defaultdict(lambda: collections.defaultdict(list))
+        with open(filename, 'r') as f:
+            reader = csv.reader(f, delimiter=',')
+            next(reader)
+            for row in reader:
+                results[int(row[0])][int(row[1])] = int(row[2])
+            
+        return results
+
+    # calculates what fraction of retrieved docs are relevant
+    def precision(retrieved_docs, relevant_docs):
+        relevant_retrieved = relevant_docs.keys() & retrieved_docs
+        precision = len(relevant_retrieved)/len(retrieved_docs)
+        return round(precision, 3)
+
+    # calculates what fraction of relevant docs are retrieved
+    def recall(retrieved_docs, relevant_docs):
+        relevant_retrieved = relevant_docs.keys() & retrieved_docs
+        recall = len(relevant_retrieved)/len(relevant_docs)
+        return round(recall, 3)
+
+    # calculates average precision 
+    def AP(retrieved_docs, relevant_docs):
+        ap = 0 
+
+        for k in retrieved_docs:
+            if int(k[0]) in relevant_docs.keys():
+                precision_k = precision(Extract(retrieved_docs[:int(k[1])]), relevant_docs)
+                ap += precision_k * 1
+            else:
+                ap += 0
+
+        return round(ap/len(relevant_docs), 3)
+
+    # Calculates nDCG by comparing DCG at each rank with the ideal DCG 
+    def nDCG(retrieved_docs, relevant_docs):
+
+        rel1 = relevant_docs[int(retrieved_docs[0][0])] if retrieved_docs[0][0] in relevant_docs.keys() else 0
+        DCG = rel1
+        for i in retrieved_docs[1:]:
+            if int(i[0]) in relevant_docs.keys():
+                DCG += relevant_docs[int(i[0])]/np.log2(int(i[1]))
         
-        means.append(np.mean(for_mean, axis=0))
-        writer.writerow([system,"mean",round(means[system-1][0],3),round(means[system-1][1],3),round(means[system-1][2],3),
-        round(means[system-1][3],3),round(means[system-1][4],3),round(means[system-1][5],3)])
+        irel = list(relevant_docs.values())
 
-        # for i in range(6):
-        #     for j in range(5-i):
-        #         print(stats.ttest_rel(d20[i], d20[i+j+1]))
+        iDCG = irel[0]
+        for idx, rel in enumerate(irel[1:]):
+            iDCG += rel/np.log2(idx + 2)
+            
+        nDCG = DCG/iDCG
+
+        return round(nDCG, 3)
+
+    # storing the results of each measure in the format required
+    with open('ir_eval.csv', 'w') as result:
+
+        sys_retrieved_doc = retrieved_docs("/Users/arnav/Desktop/Y4/ttds/cw2/system_results.csv")
+        relevant_doc = relevant_docs("/Users/arnav/Desktop/Y4/ttds/cw2/qrels.csv")
+
+        writer = csv.writer(result, delimiter=",")
+        writer.writerow(['system_number','query_number','P@10','R@50','r-precision','AP','nDCG@10','nDCG@20'])
+
+        means = []
+        for system,retrieved_doc in sys_retrieved_doc.items():
+            for_mean = []
+
+            # for 2-tailed t-test
+            # Ps = []
+            # rs = []
+            # rps = []
+            # aps = []
+            # d10 = []
+            # d20 = []
+            for query,doc in retrieved_doc.items():
+
+                precision_10 = precision(Extract(doc[:10]), relevant_doc[query])
+
+                recall_50 = recall(Extract(doc[:50]), relevant_doc[query])
+
+                # precision at rank r(cut-off rank)
+                cut_off = doc[:len(relevant_doc[query])]
+                r_precision = precision(Extract(cut_off), relevant_doc[query])
+
+                ap = AP(doc, relevant_doc[query])
+                
+                nDCG_10 = nDCG(doc[:10], relevant_doc[query])
+                nDCG_20 = nDCG(doc[:20], relevant_doc[query])
+
+                writer.writerow([system,query,precision_10,recall_50,r_precision,ap,nDCG_10,nDCG_20])
+
+                for_mean.append([precision_10,recall_50,r_precision,ap,nDCG_10,nDCG_20])
+
+                # for 2-tailed t-test
+                # Ps.append(precision_10)
+                # rs.append(recall_50)
+                # rps.append(r_precision)
+                # aps.append(ap)
+                # d10.append(nDCG_10)
+                # d20.append(nDCG_20)
+            
+            means.append(np.mean(for_mean, axis=0))
+            writer.writerow([system,"mean",round(means[system-1][0],3),round(means[system-1][1],3),round(means[system-1][2],3),
+            round(means[system-1][3],3),round(means[system-1][4],3),round(means[system-1][5],3)])
+
+            # # for 2-tailed t-test
+            # # Generated the p-values for test of each system with another for each measure
+            # for i in range(6):
+            #     for j in range(5-i):
+            #         print(stats.ttest_rel(d20[i], d20[i+j+1]))
 
 #TASK 2
+
 # preprosses the input text
 def preprocessing(text):
     from string import punctuation
@@ -164,9 +187,12 @@ def preprocessing(text):
     # return stem_words
     # comment this return statement out to return without stopping
     # print(stem_words)
-    return stem_words_without_stopping
+    return stem_words
 
+# TASK 2
 
+# This is the section for Text Analysis where the word-level comparisons are performed using Mutual Information and Chi-squared values
+# Topic-level comaprisons are also performed using Lda modelling
 def tsv_reader(filename):
 
     classes = collections.defaultdict(lambda: collections.defaultdict(int))
@@ -183,6 +209,7 @@ def tsv_reader(filename):
             
     return docs, classes
 
+
 def MI_calc(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N):
     t1 = (N_11/N * math.log2((N * N_11)/(N1_ * N_1))) if (N * N_11) != 0 and (N1_ * N_1) != 0 else 0
     t2 = (N_10/N * math.log2((N * N_10)/(N1_ * N_0))) if (N * N_10) != 0 and (N1_ * N_0) != 0 else 0
@@ -191,8 +218,10 @@ def MI_calc(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N):
 
     return t1+t2+t3+t4
 
+
 def chi_sq_calc(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N):
     return (((N * ((N_11 * N_00) - (N_10 * N_01))**2) / (N1_ * N_1 * N0_ * N0_)) if (N1_ * N_1 * N0_ * N0_) != 0 else 0)
+
 
 def mi_chi(docs, classes):
 
@@ -240,6 +269,7 @@ def mi_chi(docs, classes):
 
     return (classes_MI, classes_chi)
 
+
 def avg_score_topic(topic_probs):
 
     avg_score = []
@@ -250,6 +280,7 @@ def avg_score_topic(topic_probs):
         avg_score.append(topicwise_sum/len(topic_probs))
     
     return avg_score
+
 
 def lda(docs):
     
@@ -325,7 +356,7 @@ def preprocess_imp(text):
     # # Eliminate duplicate whitespaces using wildcards
     text = re.sub('\s+', ' ', text)
     # checks for all the alphanumeric characters, spaces and punctuations and keeps them in the corpus
-    text = ''.join(t for t in text if (t.isalnum() or t.isspace() or t in punctuation))
+    # text = ''.join(t for t in text if (t.isalnum() or t.isspace() or t in punctuation))
     # # replaces all the punctiations with spaces
     # punctuation1 = punctuation.replace("\'",'')
     # regex = re.compile('[%s]' % re.escape(punctuation1))
@@ -351,7 +382,7 @@ def preprocess_imp(text):
     stem_words_without_stopping = [porter.stem(word) for word in words]
     # print(stem_words[:80])
 
-    return(stem_words_without_stopping)
+    return(processed_text)
 
 def baseline(train_dev):
     train_dev_shuffled = train_dev.sample(frac=1)
@@ -479,7 +510,7 @@ category_id_train_imp = categoryid(Ytrain_imp)
 category_id_dev_imp = categoryid(Ydev_imp)
 category_id_test_imp = categoryid(Ytest_imp)
 
-model_imp = sklearn.tree.DecisionTreeClassifier()
+model_imp = sklearn.svm.SVC(C=10, random_state = 42)
 model_imp.fit(sparse_matrix_train_imp, category_id_train_imp)
 y_train_preds_imp = model_imp.predict(sparse_matrix_train_imp)
 y_dev_preds_imp = model_imp.predict(sparse_matrix_dev_imp)
