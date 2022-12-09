@@ -7,6 +7,7 @@ import re
 from scipy.sparse import dok_matrix
 import sklearn
 from sklearn import ensemble
+from sklearn import tree
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 from nltk.stem import PorterStemmer
@@ -90,12 +91,12 @@ with open('ir_eval.csv', 'w') as result:
     means = []
     for system,retrieved_doc in sys_retrieved_doc.items():
         for_mean = []
-        Ps = []
-        rs = []
-        rps = []
-        aps = []
-        d10 = []
-        d20 = []
+        # Ps = []
+        # rs = []
+        # rps = []
+        # aps = []
+        # d10 = []
+        # d20 = []
         for query,doc in retrieved_doc.items():
 
             precision_10 = precision(Extract(doc[:10]), relevant_doc[query])
@@ -113,7 +114,6 @@ with open('ir_eval.csv', 'w') as result:
             writer.writerow([system,query,precision_10,recall_50,r_precision,ap,nDCG_10,nDCG_20])
 
             for_mean.append([precision_10,recall_50,r_precision,ap,nDCG_10,nDCG_20])
-
 
             # Ps.append(precision_10)
             # rs.append(recall_50)
@@ -164,7 +164,7 @@ def preprocessing(text):
     # return stem_words
     # comment this return statement out to return without stopping
     # print(stem_words)
-    return stem_words
+    return stem_words_without_stopping
 
 
 def tsv_reader(filename):
@@ -393,6 +393,15 @@ def bow_matrix(data, id):
     
     return S
 
+def bow_matrix_normalized(data, id):
+    oov_index = len(id)
+    S = dok_matrix((len(data), len(id)+1))
+    for doc_id, doc in enumerate(data):
+        for word in doc:
+            S[doc_id, id.get(word, oov_index)] += 1/len(doc)
+    
+    return S
+
 def categoryid(data):
     category_id = {}
     for idx, category in enumerate(set(data)):
@@ -431,9 +440,9 @@ vocab_id = vocabid(Xtrain)
 
 sparse_matrix_train = bow_matrix(Xtrain, vocab_id)
 sparse_matrix_dev = bow_matrix(Xdev, vocab_id)
+sparse_matrix_test = bow_matrix(Xtest, vocab_id)
 category_id_train = categoryid(Ytrain)
 category_id_dev = categoryid(Ydev)
-sparse_matrix_test = bow_matrix(Xtest, vocab_id)
 category_id_test = categoryid(Ytest)
 print("////////////////////////////////////")
 model = sklearn.svm.LinearSVC(C=1000, random_state = 42)
@@ -446,7 +455,11 @@ dev_dict = prepared_data(category_id_dev, y_dev_preds)
 train_dict = prepared_data(category_id_train, y_train_preds)
 test_dict = prepared_data(category_id_test, y_test_preds)
 
-#IMPROVEMENT
+# print(train_dict)
+# print(dev_dict)
+# print(test_dict)
+
+#IMPROVEMENT (Normalized bow matric and c=10 for 6-8% improvement -- best model yet)
 train_imp, dev_imp = train_test_split(baseline_imp(train_dev), test_size=0.1)
 test_baseline_imp = baseline_imp(test)
 Xtrain_imp = train_imp["preprocessed_tweet"].tolist()
@@ -458,14 +471,15 @@ Ytest_imp = test_baseline_imp["sentiment"].tolist()
 
 vocab_id_imp = vocabid(Xtrain_imp)
 
-sparse_matrix_train_imp = bow_matrix(Xtrain_imp, vocab_id_imp)
-sparse_matrix_dev_imp = bow_matrix(Xdev_imp, vocab_id_imp)
+# _normalized
+sparse_matrix_train_imp = bow_matrix_normalized(Xtrain_imp, vocab_id_imp)
+sparse_matrix_dev_imp = bow_matrix_normalized(Xdev_imp, vocab_id_imp)
+sparse_matrix_test_imp = bow_matrix_normalized(Xtest_imp, vocab_id_imp)
 category_id_train_imp = categoryid(Ytrain_imp)
 category_id_dev_imp = categoryid(Ydev_imp)
-sparse_matrix_test_imp = bow_matrix(Xtest_imp, vocab_id_imp)
 category_id_test_imp = categoryid(Ytest_imp)
 
-model_imp = sklearn.svm.LinearSVC(C=100, random_state = 42)
+model_imp = sklearn.tree.DecisionTreeClassifier()
 model_imp.fit(sparse_matrix_train_imp, category_id_train_imp)
 y_train_preds_imp = model_imp.predict(sparse_matrix_train_imp)
 y_dev_preds_imp = model_imp.predict(sparse_matrix_dev_imp)
@@ -474,6 +488,10 @@ y_test_preds_imp = model_imp.predict(sparse_matrix_test_imp)
 dev_dict_imp = prepared_data(category_id_dev_imp, y_dev_preds_imp)
 train_dict_imp = prepared_data(category_id_train_imp, y_train_preds_imp)
 test_dict_imp = prepared_data(category_id_test_imp, y_test_preds_imp)
+
+# print(train_dict_imp)
+# print(dev_dict_imp)
+# print(test_dict_imp)
 
 with open('classification.csv', 'w') as cls:
     writer = csv.writer(cls, delimiter=",")
