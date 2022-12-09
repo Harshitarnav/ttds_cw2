@@ -262,12 +262,12 @@ def lda(docs):
 docs, classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/ot_nt_q.tsv")
 MI, chi = mi_chi(docs, classes)
 lda_out = lda(docs)
-print(max(list(chi['OT'].values())))
-print(min(list(chi['OT'].values())))
-print(max(list(chi['NT'].values())))
-print(min(list(chi['NT'].values())))
-print(max(list(chi['Quran'].values())))
-print(min(list(chi['Quran'].values())))
+# print(max(list(chi['OT'].values())))
+# print(min(list(chi['OT'].values())))
+# print(max(list(chi['NT'].values())))
+# print(min(list(chi['NT'].values())))
+# print(max(list(chi['Quran'].values())))
+# print(min(list(chi['Quran'].values())))
 
 
 # TASK 3
@@ -303,10 +303,8 @@ def baseline(train_dev):
 
     preprocessed_tweet = []
     for idx, i in train_dev_shuffled.iterrows():
-        # preprocess(i["tweet"])
         preprocessed_tweet.append(preprocess(i["tweet"]))
     train_dev_shuffled["preprocessed_tweet"] = preprocessed_tweet
-    # print(train_dev_shuffled)
     return train_dev_shuffled
 
 def vocabid(train):
@@ -335,29 +333,20 @@ def categoryid(data):
     category_id = {}
     for idx, category in enumerate(set(data)):
         category_id[category] = idx
-
     E = [category_id[category] for category in data]
     return E
 
 def prepared_data(pred, true):
 
     all_dict = classification_report(true, pred, output_dict = True)
-    print(all_dict)
     del all_dict['accuracy']
     del all_dict['weighted avg']
     scores = []
     for i in all_dict.keys():
-        print(all_dict[i])
         scores.append(all_dict[i]['precision'])
         scores.append(all_dict[i]['recall'])
         scores.append(all_dict[i]['f1-score'])
-    # print(scores)
     return scores
-        # for j in all_dict[i]:
-        #     if len(j)>3:
-        #         scores.append(all_dict[i][j])
-
-
 
 train_dev = pd.read_csv("/Users/arnav/Desktop/Y4/ttds/cw2/train.tsv", sep = "\t")
 
@@ -374,7 +363,8 @@ vocab_id = vocabid(Xtrain)
 sparse_matrix_train = bow_matrix(Xtrain, vocab_id)
 sparse_matrix_dev = bow_matrix(Xdev, vocab_id)
 category_id_train = categoryid(Ytrain)
-model = sklearn.svm.LinearSVC(C=1000, random_state=42)
+print("////////////////////////////////////")
+model = sklearn.svm.LinearSVC(C=1000)
 model.fit(sparse_matrix_train, category_id_train)
 
 y_train_preds = model.predict(sparse_matrix_train)
@@ -395,6 +385,16 @@ dev_dict = prepared_data(category_id_dev, y_dev_preds)
 train_dict = prepared_data(category_id_train, y_train_preds)
 test_dict = prepared_data(category_id_test, y_test_preds)
 
+model_imp = sklearn.linear_model.LogisticRegression(random_state = 42)
+model_imp.fit(sparse_matrix_train, category_id_train)
+y_train_preds_imp = model_imp.predict(sparse_matrix_train)
+y_dev_preds_imp = model_imp.predict(sparse_matrix_dev)
+y_test_preds_imp = model_imp.predict(sparse_matrix_test)
+
+print(classification_report(category_id_dev, y_dev_preds_imp))
+print(classification_report(category_id_train, y_train_preds_imp))
+print(classification_report(category_id_test, y_test_preds_imp))
+
 with open('classification.csv', 'w') as cls:
     writer = csv.writer(cls, delimiter=",")
     writer.writerow(['system','split','p-pos','r-pos','f-pos','p-neg','r-neg','f-neg','p-neu','r-neu','f-neu','p-macro','r-macro','f-macro'])
@@ -404,16 +404,6 @@ with open('classification.csv', 'w') as cls:
     writer.writerow(['improved', 'train', train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0]])
     writer.writerow(['improved', 'dev', train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0]])
     writer.writerow(['improved', 'test', train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0]])
-
-# model_imp = sklearn.ensemble.RandomForestClassifier()
-# model_imp.fit(sparse_matrix_train, category_id_train)
-# y_train_preds_imp = model_imp.predict(sparse_matrix_train)
-# y_dev_preds_imp = model_imp.predict(sparse_matrix_dev)
-# y_test_preds_imp = model_imp.predict(sparse_matrix_test)
-
-# print(classification_report(category_id_dev, y_dev_preds_imp))
-# print(classification_report(category_id_train, y_train_preds_imp))
-# print(classification_report(category_id_test, y_test_preds_imp))
 
 with open('ainvayi.txt','w') as f:
     writer = csv.writer(f, delimiter=",")
