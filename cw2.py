@@ -13,6 +13,8 @@ from nltk.stem import PorterStemmer
 from gensim.corpora.dictionary import Dictionary
 from gensim.models.ldamodel import LdaModel
 
+# import scipy.stats as stats
+
 #TASK 1
 def retrieved_docs(filename):
 
@@ -88,6 +90,12 @@ with open('ir_eval.csv', 'w') as result:
     means = []
     for system,retrieved_doc in sys_retrieved_doc.items():
         for_mean = []
+        Ps = []
+        rs = []
+        rps = []
+        aps = []
+        d10 = []
+        d20 = []
         for query,doc in retrieved_doc.items():
 
             precision_10 = precision(Extract(doc[:10]), relevant_doc[query])
@@ -105,11 +113,22 @@ with open('ir_eval.csv', 'w') as result:
             writer.writerow([system,query,precision_10,recall_50,r_precision,ap,nDCG_10,nDCG_20])
 
             for_mean.append([precision_10,recall_50,r_precision,ap,nDCG_10,nDCG_20])
+
+
+            # Ps.append(precision_10)
+            # rs.append(recall_50)
+            # rps.append(r_precision)
+            # aps.append(ap)
+            # d10.append(nDCG_10)
+            # d20.append(nDCG_20)
         
         means.append(np.mean(for_mean, axis=0))
         writer.writerow([system,"mean",round(means[system-1][0],3),round(means[system-1][1],3),round(means[system-1][2],3),
         round(means[system-1][3],3),round(means[system-1][4],3),round(means[system-1][5],3)])
 
+        # for i in range(6):
+        #     for j in range(5-i):
+        #         print(stats.ttest_rel(d20[i], d20[i+j+1]))
 
 #TASK 2
 # preprosses the input text
