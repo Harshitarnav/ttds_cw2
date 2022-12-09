@@ -6,6 +6,7 @@ import math
 import re
 from scipy.sparse import dok_matrix
 import sklearn
+from sklearn import ensemble
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 from nltk.stem import PorterStemmer
@@ -228,6 +229,7 @@ def avg_score_topic(topic_probs):
         for doc in topic_probs:
             topicwise_sum += doc[topic][1]
         avg_score.append(topicwise_sum/len(topic_probs))
+    
     return avg_score
 
 def lda(docs):
@@ -246,9 +248,9 @@ def lda(docs):
     NT_avg_topic_score = avg_score_topic(NT_topic_prob)
     Q_avg_topic_score = avg_score_topic(Q_topic_prob)
 
-    print(OT_avg_topic_score)
-    print(NT_avg_topic_score)
-    print(Q_avg_topic_score)
+    print(len(OT_topic_prob[0]))
+    # print(NT_avg_topic_score)
+    # print(Q_avg_topic_score)
 
     maxm = [("OT", OT_avg_topic_score.index(max(OT_avg_topic_score)),max(OT_avg_topic_score)), 
     ("NT", NT_avg_topic_score.index(max(NT_avg_topic_score)),max(NT_avg_topic_score)), ("Quran", Q_avg_topic_score.index(max(Q_avg_topic_score)),max(Q_avg_topic_score))]
@@ -335,14 +337,32 @@ def categoryid(data):
         category_id[category] = idx
 
     E = [category_id[category] for category in data]
-    # print(category_id)
-    # print(E)
     return E
+
+def prepared_data(pred, true):
+
+    all_dict = classification_report(true, pred, output_dict = True)
+    print(all_dict)
+    del all_dict['accuracy']
+    del all_dict['weighted avg']
+    scores = []
+    for i in all_dict.keys():
+        print(all_dict[i])
+        scores.append(all_dict[i]['precision'])
+        scores.append(all_dict[i]['recall'])
+        scores.append(all_dict[i]['f1-score'])
+    # print(scores)
+    return scores
+        # for j in all_dict[i]:
+        #     if len(j)>3:
+        #         scores.append(all_dict[i][j])
+
+
 
 train_dev = pd.read_csv("/Users/arnav/Desktop/Y4/ttds/cw2/train.tsv", sep = "\t")
 
 # 80 20 split
-train, dev = train_test_split(baseline(train_dev), test_size=0.2)
+train, dev = train_test_split(baseline(train_dev), test_size=0.1)
 
 Xtrain = train["preprocessed_tweet"].tolist()
 Xdev = dev["preprocessed_tweet"].tolist()
@@ -352,11 +372,11 @@ Ydev= dev["sentiment"].tolist()
 vocab_id = vocabid(Xtrain)
 
 sparse_matrix_train = bow_matrix(Xtrain, vocab_id)
+sparse_matrix_dev = bow_matrix(Xdev, vocab_id)
 category_id_train = categoryid(Ytrain)
-model = sklearn.svm.SVC(C=1000, random_state=42)
+model = sklearn.svm.LinearSVC(C=1000, random_state=42)
 model.fit(sparse_matrix_train, category_id_train)
 
-sparse_matrix_dev = bow_matrix(Xdev, vocab_id)
 y_train_preds = model.predict(sparse_matrix_train)
 y_dev_preds = model.predict(sparse_matrix_dev)
 
@@ -364,16 +384,36 @@ category_id_dev = categoryid(Ydev)
 
 test = pd.read_csv("/Users/arnav/Desktop/Y4/ttds/cw2/test.tsv", sep = "\t")
 test_baseline = baseline(test)
-print(test_baseline)
+# print(test_baseline)
 Xtest = test_baseline["preprocessed_tweet"].tolist()
 Ytest = test_baseline["sentiment"].tolist()
 sparse_matrix_test = bow_matrix(Xtest, vocab_id)
 category_id_test = categoryid(Ytest)
 y_test_preds = model.predict(sparse_matrix_test)
 
-print(classification_report(category_id_dev, y_dev_preds))
-print(classification_report(category_id_train, y_train_preds))
-print(classification_report(category_id_test, y_test_preds))
+dev_dict = prepared_data(category_id_dev, y_dev_preds)
+train_dict = prepared_data(category_id_train, y_train_preds)
+test_dict = prepared_data(category_id_test, y_test_preds)
+
+with open('classification.csv', 'w') as cls:
+    writer = csv.writer(cls, delimiter=",")
+    writer.writerow(['system','split','p-pos','r-pos','f-pos','p-neg','r-neg','f-neg','p-neu','r-neu','f-neu','p-macro','r-macro','f-macro'])
+    writer.writerow(['baseline', 'train', train_dict[0], train_dict[1], train_dict[2], train_dict[3], train_dict[4], train_dict[5], train_dict[6], train_dict[7], train_dict[8], train_dict[9], train_dict[10], train_dict[11]])
+    writer.writerow(['baseline', 'dev', dev_dict[0], dev_dict[1], dev_dict[2], dev_dict[3], dev_dict[4], dev_dict[5], dev_dict[6], dev_dict[7], dev_dict[8], dev_dict[9], dev_dict[10], dev_dict[11]])
+    writer.writerow(['baseline', 'test', test_dict[0], test_dict[1], test_dict[2], test_dict[3], test_dict[4], test_dict[5], test_dict[6], test_dict[7], test_dict[8], test_dict[9], test_dict[10], test_dict[1]])
+    writer.writerow(['improved', 'train', train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0]])
+    writer.writerow(['improved', 'dev', train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0]])
+    writer.writerow(['improved', 'test', train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0]])
+
+# model_imp = sklearn.ensemble.RandomForestClassifier()
+# model_imp.fit(sparse_matrix_train, category_id_train)
+# y_train_preds_imp = model_imp.predict(sparse_matrix_train)
+# y_dev_preds_imp = model_imp.predict(sparse_matrix_dev)
+# y_test_preds_imp = model_imp.predict(sparse_matrix_test)
+
+# print(classification_report(category_id_dev, y_dev_preds_imp))
+# print(classification_report(category_id_train, y_train_preds_imp))
+# print(classification_report(category_id_test, y_test_preds_imp))
 
 with open('ainvayi.txt','w') as f:
     writer = csv.writer(f, delimiter=",")
