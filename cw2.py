@@ -314,8 +314,44 @@ def preprocess(text):
     # for word in text:
     #     words.append(word.lower())
 
-    
     return(text)
+
+def preprocess_imp(text):
+    from string import punctuation
+    #removing all the links
+    text = re.sub(r'^https?:\/\/.*[\r\n]*', '', text, flags=re.MULTILINE)
+
+    # from string import punctuation
+    # # Eliminate duplicate whitespaces using wildcards
+    text = re.sub('\s+', ' ', text)
+    # checks for all the alphanumeric characters, spaces and punctuations and keeps them in the corpus
+    text = ''.join(t for t in text if (t.isalnum() or t.isspace() or t in punctuation))
+    # # replaces all the punctiations with spaces
+    # punctuation1 = punctuation.replace("\'",'')
+    # regex = re.compile('[%s]' % re.escape(punctuation1))
+    # text = regex.sub(' ', text)
+    # # design choice to replace all punctuations with space but apostophe with no-space('')
+    text = re.sub("\'",'',text)
+    # # splits the entire text at blank spaces
+    text = text.split()
+
+    # converts the entire vocabulary into lower case
+    words = []
+    for word in text:
+        words.append(word.lower())
+
+    # Stop words removal
+    stopwords = open("/Users/arnav/Desktop/Y4/ttds/cw1/englishST.txt").read()
+    processed_text = [word for word in words if word not in stopwords]
+    # print(processed_text[:100])
+
+    # Normalization using Porter stemmer
+    porter = PorterStemmer()
+    stem_words = [porter.stem(word) for word in processed_text]
+    stem_words_without_stopping = [porter.stem(word) for word in words]
+    # print(stem_words[:80])
+
+    return(stem_words_without_stopping)
 
 def baseline(train_dev):
     train_dev_shuffled = train_dev.sample(frac=1)
@@ -323,6 +359,15 @@ def baseline(train_dev):
     preprocessed_tweet = []
     for idx, i in train_dev_shuffled.iterrows():
         preprocessed_tweet.append(preprocess(i["tweet"]))
+    train_dev_shuffled["preprocessed_tweet"] = preprocessed_tweet
+    return train_dev_shuffled
+
+def baseline_imp(train_dev):
+    train_dev_shuffled = train_dev.sample(frac=1)
+
+    preprocessed_tweet = []
+    for idx, i in train_dev_shuffled.iterrows():
+        preprocessed_tweet.append(preprocess_imp(i["tweet"]))
     train_dev_shuffled["preprocessed_tweet"] = preprocessed_tweet
     return train_dev_shuffled
 
@@ -358,6 +403,7 @@ def categoryid(data):
 def prepared_data(pred, true):
 
     all_dict = classification_report(true, pred, output_dict = True)
+    print(all_dict['accuracy'])
     del all_dict['accuracy']
     del all_dict['weighted avg']
     scores = []
@@ -371,48 +417,63 @@ train_dev = pd.read_csv("/Users/arnav/Desktop/Y4/ttds/cw2/train.tsv", sep = "\t"
 
 # 80 20 split
 train, dev = train_test_split(baseline(train_dev), test_size=0.1)
+test = pd.read_csv("/Users/arnav/Desktop/Y4/ttds/cw2/test.tsv", sep = "\t")
+test_baseline = baseline(test)
 
 Xtrain = train["preprocessed_tweet"].tolist()
 Xdev = dev["preprocessed_tweet"].tolist()
 Ytrain = train["sentiment"].tolist()
 Ydev= dev["sentiment"].tolist()
+Xtest = test_baseline["preprocessed_tweet"].tolist()
+Ytest = test_baseline["sentiment"].tolist()
 
 vocab_id = vocabid(Xtrain)
 
 sparse_matrix_train = bow_matrix(Xtrain, vocab_id)
 sparse_matrix_dev = bow_matrix(Xdev, vocab_id)
 category_id_train = categoryid(Ytrain)
-print("////////////////////////////////////")
-model = sklearn.svm.LinearSVC(C=1000)
-model.fit(sparse_matrix_train, category_id_train)
-
-y_train_preds = model.predict(sparse_matrix_train)
-y_dev_preds = model.predict(sparse_matrix_dev)
-
 category_id_dev = categoryid(Ydev)
-
-test = pd.read_csv("/Users/arnav/Desktop/Y4/ttds/cw2/test.tsv", sep = "\t")
-test_baseline = baseline(test)
-# print(test_baseline)
-Xtest = test_baseline["preprocessed_tweet"].tolist()
-Ytest = test_baseline["sentiment"].tolist()
 sparse_matrix_test = bow_matrix(Xtest, vocab_id)
 category_id_test = categoryid(Ytest)
+print("////////////////////////////////////")
+model = sklearn.svm.LinearSVC(C=1000, random_state = 42)
+model.fit(sparse_matrix_train, category_id_train)
+y_train_preds = model.predict(sparse_matrix_train)
+y_dev_preds = model.predict(sparse_matrix_dev)
 y_test_preds = model.predict(sparse_matrix_test)
 
 dev_dict = prepared_data(category_id_dev, y_dev_preds)
 train_dict = prepared_data(category_id_train, y_train_preds)
 test_dict = prepared_data(category_id_test, y_test_preds)
 
-model_imp = sklearn.linear_model.LogisticRegression(random_state = 42)
-model_imp.fit(sparse_matrix_train, category_id_train)
-y_train_preds_imp = model_imp.predict(sparse_matrix_train)
-y_dev_preds_imp = model_imp.predict(sparse_matrix_dev)
-y_test_preds_imp = model_imp.predict(sparse_matrix_test)
+#IMPROVEMENT
+train_imp, dev_imp = train_test_split(baseline_imp(train_dev), test_size=0.1)
+test_baseline_imp = baseline_imp(test)
+Xtrain_imp = train_imp["preprocessed_tweet"].tolist()
+Xdev_imp = dev_imp["preprocessed_tweet"].tolist()
+Ytrain_imp = train_imp["sentiment"].tolist()
+Ydev_imp = dev_imp["sentiment"].tolist()
+Xtest_imp = test_baseline_imp["preprocessed_tweet"].tolist()
+Ytest_imp = test_baseline_imp["sentiment"].tolist()
 
-print(classification_report(category_id_dev, y_dev_preds_imp))
-print(classification_report(category_id_train, y_train_preds_imp))
-print(classification_report(category_id_test, y_test_preds_imp))
+vocab_id_imp = vocabid(Xtrain_imp)
+
+sparse_matrix_train_imp = bow_matrix(Xtrain_imp, vocab_id_imp)
+sparse_matrix_dev_imp = bow_matrix(Xdev_imp, vocab_id_imp)
+category_id_train_imp = categoryid(Ytrain_imp)
+category_id_dev_imp = categoryid(Ydev_imp)
+sparse_matrix_test_imp = bow_matrix(Xtest_imp, vocab_id_imp)
+category_id_test_imp = categoryid(Ytest_imp)
+
+model_imp = sklearn.svm.LinearSVC(C=100, random_state = 42)
+model_imp.fit(sparse_matrix_train_imp, category_id_train_imp)
+y_train_preds_imp = model_imp.predict(sparse_matrix_train_imp)
+y_dev_preds_imp = model_imp.predict(sparse_matrix_dev_imp)
+y_test_preds_imp = model_imp.predict(sparse_matrix_test_imp)
+
+dev_dict_imp = prepared_data(category_id_dev_imp, y_dev_preds_imp)
+train_dict_imp = prepared_data(category_id_train_imp, y_train_preds_imp)
+test_dict_imp = prepared_data(category_id_test_imp, y_test_preds_imp)
 
 with open('classification.csv', 'w') as cls:
     writer = csv.writer(cls, delimiter=",")
@@ -420,9 +481,9 @@ with open('classification.csv', 'w') as cls:
     writer.writerow(['baseline', 'train', train_dict[0], train_dict[1], train_dict[2], train_dict[3], train_dict[4], train_dict[5], train_dict[6], train_dict[7], train_dict[8], train_dict[9], train_dict[10], train_dict[11]])
     writer.writerow(['baseline', 'dev', dev_dict[0], dev_dict[1], dev_dict[2], dev_dict[3], dev_dict[4], dev_dict[5], dev_dict[6], dev_dict[7], dev_dict[8], dev_dict[9], dev_dict[10], dev_dict[11]])
     writer.writerow(['baseline', 'test', test_dict[0], test_dict[1], test_dict[2], test_dict[3], test_dict[4], test_dict[5], test_dict[6], test_dict[7], test_dict[8], test_dict[9], test_dict[10], test_dict[1]])
-    writer.writerow(['improved', 'train', train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0]])
-    writer.writerow(['improved', 'dev', train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0]])
-    writer.writerow(['improved', 'test', train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0], train_dict[0]])
+    writer.writerow(['improved', 'train', train_dict_imp[0], train_dict_imp[1], train_dict_imp[2], train_dict_imp[3], train_dict_imp[4], train_dict_imp[5], train_dict_imp[6], train_dict_imp[7], train_dict_imp[8], train_dict_imp[9], train_dict_imp[10], train_dict_imp[11]])
+    writer.writerow(['improved', 'dev', dev_dict_imp[0], dev_dict_imp[1], dev_dict_imp[2], dev_dict_imp[3], dev_dict_imp[4], dev_dict_imp[5], dev_dict_imp[6], dev_dict_imp[7], dev_dict_imp[8], dev_dict_imp[9], dev_dict_imp[10], dev_dict_imp[11]])
+    writer.writerow(['improved', 'test', test_dict_imp[0], test_dict_imp[1], test_dict_imp[2], test_dict_imp[3], test_dict_imp[4], test_dict_imp[5], test_dict_imp[6], test_dict_imp[7], test_dict_imp[8], test_dict_imp[9], test_dict_imp[10], test_dict_imp[1]])
 
 with open('ainvayi.txt','w') as f:
     writer = csv.writer(f, delimiter=",")
