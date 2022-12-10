@@ -446,10 +446,10 @@ class CLASSIFICATION:
         return E, cat_names
 
     # prepares the precision, recall and f1 data properly for writing into the file
-    def prepared_data(pred, true):
+    def prepared_data(pred, true, cat_names):
 
-        all_dict = classification_report(true, pred, output_dict = True)
-        print(all_dict['accuracy'])
+        all_dict = classification_report(true, pred, output_dict = True, target_names=cat_names)
+        print(all_dict)
         del all_dict['accuracy']
         del all_dict['weighted avg']
         scores = []
@@ -492,13 +492,25 @@ class CLASSIFICATION:
         y_train_preds = model.predict(sparse_matrix_train)
         y_dev_preds = model.predict(sparse_matrix_dev)
         y_test_preds = model.predict(sparse_matrix_test)
+        print(len(category_id_dev))
+        print(len(y_dev_preds))
 
-        train_dict = CLASSIFICATION.prepared_data(category_id_train, y_train_preds)
-        dev_dict = CLASSIFICATION.prepared_data(category_id_dev, y_dev_preds)
-        test_dict = CLASSIFICATION.prepared_data(category_id_test, y_test_preds)
+        difference = []
+        counter = 0
+        for i, j in zip(category_id_dev, y_dev_preds):
+            if i != j:
+                difference.append((i,j,dev["tweet"].tolist()[counter]))
+            counter += 1
+        print(difference[:15])
+
+        difference = [i for i, j in zip(category_id_dev, y_dev_preds) if i == j]
+
+        train_dict = CLASSIFICATION.prepared_data(category_id_train, y_train_preds, train_cat_names)
+        dev_dict = CLASSIFICATION.prepared_data(category_id_dev, y_dev_preds, dev_cat_names)
+        test_dict = CLASSIFICATION.prepared_data(category_id_test, y_test_preds, test_cat_names)
 
         # For improving the accuracy of the baseline model
-        #IMPROVEMENT (Normalized bow matric and c=10 for 6-8% improvement -- best model yet)
+        #IMPROVEMENT model (Normalized bow matric and c=10 for 6-8% improvement -- best model yet)
         train_imp, dev_imp = train_test_split(CLASSIFICATION.baseline_imp(train_dev), test_size=0.1)
         test_baseline_imp = CLASSIFICATION.baseline_imp(test)
         Xtrain_imp = train_imp["preprocessed_tweet"].tolist()
@@ -523,9 +535,9 @@ class CLASSIFICATION:
         y_dev_preds_imp = model_imp.predict(sparse_matrix_dev_imp)
         y_test_preds_imp = model_imp.predict(sparse_matrix_test_imp)
 
-        train_dict_imp = CLASSIFICATION.prepared_data(category_id_train_imp, y_train_preds_imp)
-        dev_dict_imp = CLASSIFICATION.prepared_data(category_id_dev_imp, y_dev_preds_imp)
-        test_dict_imp = CLASSIFICATION.prepared_data(category_id_test_imp, y_test_preds_imp)
+        train_dict_imp = CLASSIFICATION.prepared_data(category_id_train_imp, y_train_preds_imp, train_cat_names_imp)
+        dev_dict_imp = CLASSIFICATION.prepared_data(category_id_dev_imp, y_dev_preds_imp, dev_cat_names_imp)
+        test_dict_imp = CLASSIFICATION.prepared_data(category_id_test_imp, y_test_preds_imp, test_cat_names_imp)
 
         # Writing into the classification.csv file in the required format
         with open('classification.csv', 'w') as cls:
