@@ -4,11 +4,14 @@ import numpy as np
 import pandas as pd
 import math
 import re
+import itertools
 from itertools import islice
 from scipy.sparse import dok_matrix
 import sklearn
 from sklearn import ensemble
 from sklearn import tree
+import sys
+from sklearn.multiclass import OneVsRestClassifier
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 from nltk.stem import PorterStemmer
@@ -84,15 +87,19 @@ class EVAL:
         DCG = rel1
         for i in retrieved_docs[1:]:
             if int(i[0]) in relevant_docs.keys():
-                DCG += relevant_docs[int(i[0])]/np.log2(int(i[1]))
+                DCG += relevant_docs[int(i[0])]/math.log2(int(i[1]))
         
+        # print(DCG)
         irel = list(relevant_docs.values())
-
+        # print(irel)
         iDCG = irel[0]
         for idx, rel in enumerate(irel[1:]):
-            iDCG += rel/np.log2(idx + 2)
-            
+            # print(idx, rel)
+            iDCG += rel/math.log2(idx + 2)
+            # print(rel)
+        # print(iDCG)
         nDCG = DCG/iDCG
+        # sys.exit(0)
 
         return round(nDCG, 3)
 
@@ -130,8 +137,11 @@ class EVAL:
 
                     ap = EVAL.AP(doc, relevant_doc[query])
                     
-                    nDCG_10 = EVAL.nDCG(doc[:10], relevant_doc[query])
-                    nDCG_20 = EVAL.nDCG(doc[:20], relevant_doc[query])
+                    print(doc[:10])
+                    rel_docs_10 = dict(itertools.islice(relevant_doc[query].items(), 10))
+                    nDCG_10 = EVAL.nDCG(doc[:10], rel_docs_10)
+                    rel_docs_20 = dict(itertools.islice(relevant_doc[query].items(), 20)) 
+                    nDCG_20 = EVAL.nDCG(doc[:20], rel_docs_20)
 
                     writer.writerow([system,query,precision_10,recall_50,r_precision,ap,nDCG_10,nDCG_20])
 
@@ -197,23 +207,25 @@ class ANALYSIS:
         classes = collections.defaultdict(lambda: collections.defaultdict(int))
         docs = collections.defaultdict(list)
         classes_final = {}
-        with open(filename, 'r') as f:
-            reader = csv.reader(f, delimiter='\t')
-            vocab = []
-            for row in reader:
-                vocab = ANALYSIS.preprocessing(row[1])
-                docs[row[0]].append(vocab)
+        with open(filename) as f:
+            a = 0
+            for row in f:
+                class_name, text = row.strip().split("\t")
+                a+=1
+                vocab = ANALYSIS.preprocessing(text)
+                docs[class_name].append(vocab)
                 
                 for token in set(vocab):
-                    classes[row[0]][token] += 1
+                    classes[class_name][token] += 1
         
+        classes_removed_10 = {}
         for i in ["OT","NT","Quran"]:
-            classes_remove_last_10 = dict(sorted(classes[i].items(), key=lambda item: item[1], reverse=True))
-            for j in range(10):
-                classes_remove_last_10.popitem()
-            classes_final[i] = classes_remove_last_10
-                
-        return docs, classes_final
+            classes_removed_10[i] = {token:count for token, count in classes[i].items() if count >= 10}
+            print(len(docs[i]))
+
+        print(a)
+
+        return docs, classes_removed_10
 
     # Section for Token Analysis
     # Helper function to calculate the Mutual Information of each word in each class
@@ -277,8 +289,8 @@ class ANALYSIS:
         for i in ["OT","NT","Quran"]:
             classes_MI_class = dict(sorted(classes_MI[i].items(), key=lambda item: item[1], reverse=True))
             classes_chi_class = dict(sorted(classes_chi[i].items(), key=lambda item: item[1], reverse=True))
-            # print(list(islice(classes_MI_class.items(),10)))
-            # print(list(islice(classes_chi_class.items(),10)))
+            print(list(islice(classes_MI_class.items(),10)))
+            print(list(islice(classes_chi_class.items(),10)))
 
         return classes_MI, classes_chi
 
@@ -302,8 +314,9 @@ class ANALYSIS:
         common_texts = [t for doc in docs.values() for t in doc]
         common_dictionary = Dictionary(common_texts)
         common_corpus = [common_dictionary.doc2bow(text) for text in common_texts]
-        lda = LdaModel(common_corpus, num_topics = 20, id2word = common_dictionary, random_state=42)
+        lda = LdaModel(common_corpus, num_topics = 20, id2word = common_dictionary)
         corpus_each = list(docs.values())
+        print(len(common_texts))
 
         OT_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[:len(corpus_each[0])]]
         NT_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[len(corpus_each[0]):(len(corpus_each[0])+len(corpus_each[1]))]]
@@ -318,7 +331,8 @@ class ANALYSIS:
 
         for t in maxm:
             print(f'Topic: {t[2]} for {t[0]} for topic {t[1]}')
-            print(lda.print_topic(t[1], 10))
+            print(lda.print_topic(t[1], topn = 10))
+
     # main implementation block for task 2
     def task_2():
         docs, classes = ANALYSIS.tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/ot_nt_q.tsv")
@@ -370,11 +384,6 @@ class CLASSIFICATION:
         # Stop words removal
         stopwords = open("/Users/arnav/Desktop/Y4/ttds/cw1/englishST.txt").read()
         processed_text = [word for word in words if word not in stopwords]
-
-        # Normalization using Porter stemmer
-        porter = PorterStemmer()
-        stem_words = [porter.stem(word) for word in processed_text]
-        stem_words_without_stopping = [porter.stem(word) for word in words]
 
         return(processed_text)
 
@@ -449,7 +458,7 @@ class CLASSIFICATION:
     def prepared_data(pred, true, cat_names):
 
         all_dict = classification_report(true, pred, output_dict = True, target_names=cat_names)
-        print(all_dict)
+        # print(all_dict["accuracy"])
         del all_dict['accuracy']
         del all_dict['weighted avg']
         scores = []
@@ -492,25 +501,22 @@ class CLASSIFICATION:
         y_train_preds = model.predict(sparse_matrix_train)
         y_dev_preds = model.predict(sparse_matrix_dev)
         y_test_preds = model.predict(sparse_matrix_test)
-        print(len(category_id_dev))
-        print(len(y_dev_preds))
 
+        # gets a list of true label, predicted label, tweet, preprocessed tweet from the development to analyse and improve the model
         difference = []
         counter = 0
         for i, j in zip(category_id_dev, y_dev_preds):
             if i != j:
-                difference.append((i,j,dev["tweet"].tolist()[counter]))
+                difference.append((i,j,dev["tweet"].tolist()[counter],dev["preprocessed_tweet"].tolist()[counter]))
             counter += 1
-        print(difference[:15])
-
-        difference = [i for i, j in zip(category_id_dev, y_dev_preds) if i == j]
+        # print(difference)
 
         train_dict = CLASSIFICATION.prepared_data(category_id_train, y_train_preds, train_cat_names)
         dev_dict = CLASSIFICATION.prepared_data(category_id_dev, y_dev_preds, dev_cat_names)
         test_dict = CLASSIFICATION.prepared_data(category_id_test, y_test_preds, test_cat_names)
 
         # For improving the accuracy of the baseline model
-        #IMPROVEMENT model (Normalized bow matric and c=10 for 6-8% improvement -- best model yet)
+        #IMPROVEMENT model (Normalized bow matric and c=50 for 6-8% improvement -- best model yet)
         train_imp, dev_imp = train_test_split(CLASSIFICATION.baseline_imp(train_dev), test_size=0.1)
         test_baseline_imp = CLASSIFICATION.baseline_imp(test)
         Xtrain_imp = train_imp["preprocessed_tweet"].tolist()
@@ -529,7 +535,7 @@ class CLASSIFICATION:
         category_id_dev_imp, dev_cat_names_imp = CLASSIFICATION.categoryid(Ydev_imp)
         category_id_test_imp, test_cat_names_imp = CLASSIFICATION.categoryid(Ytest_imp)
 
-        model_imp = sklearn.svm.SVC(C=50, random_state = 42)
+        model_imp = OneVsRestClassifier(sklearn.svm.SVC(C=500, random_state = 42))
         model_imp.fit(sparse_matrix_train_imp, category_id_train_imp)
         y_train_preds_imp = model_imp.predict(sparse_matrix_train_imp)
         y_dev_preds_imp = model_imp.predict(sparse_matrix_dev_imp)
