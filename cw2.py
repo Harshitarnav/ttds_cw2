@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import math
 import re
+from itertools import islice
 from scipy.sparse import dok_matrix
 import sklearn
 from sklearn import ensemble
@@ -69,7 +70,7 @@ class EVAL:
 
         for k in retrieved_docs:
             if int(k[0]) in relevant_docs.keys():
-                precision_k = precision(Extract(retrieved_docs[:int(k[1])]), relevant_docs)
+                precision_k = EVAL.precision(EVAL.Extract(retrieved_docs[:int(k[1])]), relevant_docs)
                 ap += precision_k * 1
             else:
                 ap += 0
@@ -95,446 +96,451 @@ class EVAL:
 
         return round(nDCG, 3)
 
-    # storing the results of each measure in the format required
-    with open('ir_eval.csv', 'w') as result:
+    # main implementation block for task 1
+    def task_1():
+        # storing the results of each measure in the format required
+        with open('ir_eval.csv', 'w') as result:
 
-        sys_retrieved_doc = retrieved_docs("/Users/arnav/Desktop/Y4/ttds/cw2/system_results.csv")
-        relevant_doc = relevant_docs("/Users/arnav/Desktop/Y4/ttds/cw2/qrels.csv")
+            sys_retrieved_doc = EVAL.retrieved_docs("/Users/arnav/Desktop/Y4/ttds/cw2/system_results.csv")
+            relevant_doc = EVAL.relevant_docs("/Users/arnav/Desktop/Y4/ttds/cw2/qrels.csv")
 
-        writer = csv.writer(result, delimiter=",")
-        writer.writerow(['system_number','query_number','P@10','R@50','r-precision','AP','nDCG@10','nDCG@20'])
+            writer = csv.writer(result, delimiter=",")
+            writer.writerow(['system_number','query_number','P@10','R@50','r-precision','AP','nDCG@10','nDCG@20'])
 
-        means = []
-        for system,retrieved_doc in sys_retrieved_doc.items():
-            for_mean = []
-
-            # for 2-tailed t-test
-            # Ps = []
-            # rs = []
-            # rps = []
-            # aps = []
-            # d10 = []
-            # d20 = []
-            for query,doc in retrieved_doc.items():
-
-                precision_10 = precision(Extract(doc[:10]), relevant_doc[query])
-
-                recall_50 = recall(Extract(doc[:50]), relevant_doc[query])
-
-                # precision at rank r(cut-off rank)
-                cut_off = doc[:len(relevant_doc[query])]
-                r_precision = precision(Extract(cut_off), relevant_doc[query])
-
-                ap = AP(doc, relevant_doc[query])
-                
-                nDCG_10 = nDCG(doc[:10], relevant_doc[query])
-                nDCG_20 = nDCG(doc[:20], relevant_doc[query])
-
-                writer.writerow([system,query,precision_10,recall_50,r_precision,ap,nDCG_10,nDCG_20])
-
-                for_mean.append([precision_10,recall_50,r_precision,ap,nDCG_10,nDCG_20])
+            means = []
+            for system,retrieved_doc in sys_retrieved_doc.items():
+                for_mean = []
 
                 # for 2-tailed t-test
-                # Ps.append(precision_10)
-                # rs.append(recall_50)
-                # rps.append(r_precision)
-                # aps.append(ap)
-                # d10.append(nDCG_10)
-                # d20.append(nDCG_20)
-            
-            means.append(np.mean(for_mean, axis=0))
-            writer.writerow([system,"mean",round(means[system-1][0],3),round(means[system-1][1],3),round(means[system-1][2],3),
-            round(means[system-1][3],3),round(means[system-1][4],3),round(means[system-1][5],3)])
+                # Ps = []
+                # rs = []
+                # rps = []
+                # aps = []
+                # d10 = []
+                # d20 = []
+                for query,doc in retrieved_doc.items():
 
-            # # for 2-tailed t-test
-            # # Generated the p-values for test of each system with another for each measure
-            # for i in range(6):
-            #     for j in range(5-i):
-            #         print(stats.ttest_rel(d20[i], d20[i+j+1]))
+                    precision_10 = EVAL.precision(EVAL.Extract(doc[:10]), relevant_doc[query])
 
-#TASK 2
+                    recall_50 = EVAL.recall(EVAL.Extract(doc[:50]), relevant_doc[query])
 
-# preprosses the input text
-def preprocessing(text):
-    from string import punctuation
-    # Eliminate duplicate whitespaces using wildcards
-    text = re.sub('\s+', ' ', text)
-    # checks for all the alphanumeric characters, spaces and punctuations and keeps them in the corpus
-    text = ''.join(t for t in text if (t.isalnum() or t.isspace() or t in punctuation))
-    # replaces all the punctiations with spaces
-    regex = re.compile('[%s]' % re.escape(punctuation))
-    text = regex.sub(' ', text)
-    # splits the entire text at blank spaces
-    text = text.split()
+                    # precision at rank r(cut-off rank)
+                    cut_off = doc[:len(relevant_doc[query])]
+                    r_precision = EVAL.precision(EVAL.Extract(cut_off), relevant_doc[query])
 
-    # converts the entire vocabulary into lower case
-    words = []
-    for word in text:
-        words.append(word.lower())
-    
-    # Stop words removal
-    stopwords = open("/Users/arnav/Desktop/Y4/ttds/cw1/englishST.txt").read()
-    processed_text = [word for word in words if word not in stopwords]
-    # print(processed_text[:100])
+                    ap = EVAL.AP(doc, relevant_doc[query])
+                    
+                    nDCG_10 = EVAL.nDCG(doc[:10], relevant_doc[query])
+                    nDCG_20 = EVAL.nDCG(doc[:20], relevant_doc[query])
 
-    # Normalization using Porter stemmer
-    porter = PorterStemmer()
-    stem_words = [porter.stem(word) for word in processed_text]
-    stem_words_without_stopping = [porter.stem(word) for word in words]
-    # print(stem_words[:80])
+                    writer.writerow([system,query,precision_10,recall_50,r_precision,ap,nDCG_10,nDCG_20])
 
-    # words after stopping and stemming
-    # return stem_words
-    # comment this return statement out to return without stopping
-    # print(stem_words)
-    return stem_words
+                    for_mean.append([precision_10,recall_50,r_precision,ap,nDCG_10,nDCG_20])
+
+                    # for 2-tailed t-test
+                    # Ps.append(precision_10)
+                    # rs.append(recall_50)
+                    # rps.append(r_precision)
+                    # aps.append(ap)
+                    # d10.append(nDCG_10)
+                    # d20.append(nDCG_20)
+                
+                means.append(np.mean(for_mean, axis=0))
+                writer.writerow([system,"mean",round(means[system-1][0],3),round(means[system-1][1],3),round(means[system-1][2],3),
+                round(means[system-1][3],3),round(means[system-1][4],3),round(means[system-1][5],3)])
+
+                # # for 2-tailed t-test
+                # # Generated the p-values for test of each system with another for each measure
+                # for i in range(6):
+                #     for j in range(5-i):
+                #         print(stats.ttest_rel(d20[i], d20[i+j+1]))
 
 # TASK 2
 
 # This is the section for Text Analysis where the word-level comparisons are performed using Mutual Information and Chi-squared values
 # Topic-level comaprisons are also performed using Lda modelling
-def tsv_reader(filename):
 
-    classes = collections.defaultdict(lambda: collections.defaultdict(int))
-    docs = collections.defaultdict(list)
-    with open(filename, 'r') as f:
-        reader = csv.reader(f, delimiter='\t')
-        vocab = []
-        for row in reader:
-            vocab = preprocessing(row[1])
-            docs[row[0]].append(vocab)
-            
-            for token in set(vocab):
-                classes[row[0]][token] += 1 
-            
-    return docs, classes
+class ANALYSIS:
 
+    # preprosses the input text removing all punctuations, case-folding, stopping and stemming to tokenise the provided text
+    def preprocessing(text):
+        from string import punctuation
+        # Eliminate duplicate whitespaces using wildcards
+        text = re.sub('\s+', ' ', text)
+        # checks for all the alphanumeric characters, spaces and punctuations and keeps them in the corpus
+        text = ''.join(t for t in text if (t.isalnum() or t.isspace() or t in punctuation))
+        # replaces all the punctiations with spaces
+        regex = re.compile('[%s]' % re.escape(punctuation))
+        text = regex.sub(' ', text)
+        # splits the entire text at blank spaces
+        text = text.split()
 
-def MI_calc(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N):
-    t1 = (N_11/N * math.log2((N * N_11)/(N1_ * N_1))) if (N * N_11) != 0 and (N1_ * N_1) != 0 else 0
-    t2 = (N_10/N * math.log2((N * N_10)/(N1_ * N_0))) if (N * N_10) != 0 and (N1_ * N_0) != 0 else 0
-    t3 = (N_01/N * math.log2((N * N_01)/(N0_ * N_1))) if (N * N_01) != 0 and (N0_ * N_1) != 0 else 0
-    t4 = (N_00/N * math.log2((N * N_00)/(N0_ * N_0))) if (N * N_00) != 0 and (N0_ * N_0) != 0 else 0
-
-    return t1+t2+t3+t4
-
-
-def chi_sq_calc(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N):
-    return (((N * ((N_11 * N_00) - (N_10 * N_01))**2) / (N1_ * N_1 * N0_ * N0_)) if (N1_ * N_1 * N0_ * N0_) != 0 else 0)
-
-
-def mi_chi(docs, classes):
-
-    classes_MI = {}
-    classes_chi = {}
-    for claus, words in classes.items():
-
-        total_in_class = len(docs[claus])
-
-        MI = collections.defaultdict(dict)
-        chi_sq = collections.defaultdict(dict)
+        # converts the entire vocabulary into lower case
+        words = []
+        for word in text:
+            words.append(word.lower())
         
-        for word, count in words.items():
-            
-            N = sum(len(doc) for doc in docs.values())
-            N_11 = count
+        # Stop words removal
+        stopwords = open("/Users/arnav/Desktop/Y4/ttds/cw1/englishST.txt").read()
+        processed_text = [word for word in words if word not in stopwords]
 
-            x = []
-            for claus1, words1 in classes.items():
-                if claus1 != claus:
-                    if word in words1.keys():
-                        x.append(words1[word])
-            
-            N_10 = sum(x)
-            N_01 = total_in_class - N_11
-
-            a = 0
-            for claus2, words2, in docs.items():
-                if claus2 != claus:
-                    a += len(words2)
-
-            N_00 = a - N_10
-            
-
-            N1_ = N_11 + N_10
-            N_1 = N_01 + N_11
-            N0_ = N_01 + N_00
-            N_0 = N_00 + N_10
-
-            MI[claus][word] = MI_calc(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N)
-            chi_sq[claus][word] = chi_sq_calc(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N)
+        # Normalization using Porter stemmer
+        porter = PorterStemmer()
+        stem_words = [porter.stem(word) for word in processed_text]
         
-        classes_MI.update(dict(MI))
-        classes_chi.update(dict(chi_sq))
+        return stem_words
 
-    return (classes_MI, classes_chi)
+    # converts the received tsv file into 2 dictionaries: 1. As a dictionary of each class and the respective documents as lists of vocabs
+    # 2. an embedded dictionary of class, word and the number of words present in that class. It also disregards 10 words with the least counts
+    def tsv_reader(filename):
 
+        classes = collections.defaultdict(lambda: collections.defaultdict(int))
+        docs = collections.defaultdict(list)
+        classes_final = {}
+        with open(filename, 'r') as f:
+            reader = csv.reader(f, delimiter='\t')
+            vocab = []
+            for row in reader:
+                vocab = ANALYSIS.preprocessing(row[1])
+                docs[row[0]].append(vocab)
+                
+                for token in set(vocab):
+                    classes[row[0]][token] += 1
+        
+        for i in ["OT","NT","Quran"]:
+            classes_remove_last_10 = dict(sorted(classes[i].items(), key=lambda item: item[1], reverse=True))
+            for j in range(10):
+                classes_remove_last_10.popitem()
+            classes_final[i] = classes_remove_last_10
+                
+        return docs, classes_final
 
-def avg_score_topic(topic_probs):
+    # Section for Token Analysis
+    # Helper function to calculate the Mutual Information of each word in each class
+    def MI_calc(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N):
+        t1 = (N_11/N * math.log2((N * N_11)/(N1_ * N_1))) if (N * N_11) != 0 and (N1_ * N_1) != 0 else 0
+        t2 = (N_10/N * math.log2((N * N_10)/(N1_ * N_0))) if (N * N_10) != 0 and (N1_ * N_0) != 0 else 0
+        t3 = (N_01/N * math.log2((N * N_01)/(N0_ * N_1))) if (N * N_01) != 0 and (N0_ * N_1) != 0 else 0
+        t4 = (N_00/N * math.log2((N * N_00)/(N0_ * N_0))) if (N * N_00) != 0 and (N0_ * N_0) != 0 else 0
 
-    avg_score = []
-    for topic in range(20):
-        topicwise_sum = 0
-        for doc in topic_probs:
-            topicwise_sum += doc[topic][1]
-        avg_score.append(topicwise_sum/len(topic_probs))
-    
-    return avg_score
+        return t1+t2+t3+t4
 
+    # Helper function to calculate the Chi Squared of each word in each class
+    def chi_sq_calc(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N):
+        return (((N * ((N_11 * N_00) - (N_10 * N_01))**2) / (N1_ * N_1 * N0_ * N0_)) if (N1_ * N_1 * N0_ * N0_) != 0 else 0)
 
-def lda(docs):
-    
-    common_texts = [t for doc in docs.values() for t in doc]
-    common_dictionary = Dictionary(common_texts)
-    common_corpus = [common_dictionary.doc2bow(text) for text in common_texts]
-    lda = LdaModel(common_corpus, num_topics = 20, id2word = common_dictionary, random_state=42)
-    corpus_each = list(docs.values())
-    
-    OT_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[:len(corpus_each[0])]]
-    NT_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[len(corpus_each[0]):(len(corpus_each[0])+len(corpus_each[1]))]]
-    Q_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[(len(corpus_each[0])+len(corpus_each[1])):]]
+    # Main method for token analysis. Calculates MI and Chi Squared values for each word in a particular class and also prints the required
+    # top 10 words for each class both according to MI and chi sq values.
+    def mi_chi(docs, classes):
 
-    OT_avg_topic_score = avg_score_topic(OT_topic_prob)
-    NT_avg_topic_score = avg_score_topic(NT_topic_prob)
-    Q_avg_topic_score = avg_score_topic(Q_topic_prob)
+        classes_MI = {}
+        classes_chi = {}
+        for claus, words in classes.items():
 
-    print(len(OT_topic_prob[0]))
-    # print(NT_avg_topic_score)
-    # print(Q_avg_topic_score)
+            total_in_class = len(docs[claus])
 
-    maxm = [("OT", OT_avg_topic_score.index(max(OT_avg_topic_score)),max(OT_avg_topic_score)), 
-    ("NT", NT_avg_topic_score.index(max(NT_avg_topic_score)),max(NT_avg_topic_score)), ("Quran", Q_avg_topic_score.index(max(Q_avg_topic_score)),max(Q_avg_topic_score))]
+            MI = collections.defaultdict(dict)
+            chi_sq = collections.defaultdict(dict)
+            
+            for word, count in words.items():
+                
+                N = sum(len(doc) for doc in docs.values())
+                N_11 = count
 
-    for t in maxm:
-        print(f'Topic: {t[2]} for {t[0]} for topic {t[1]}')
-        print(lda.print_topic(t[1], 10))
+                x = []
+                for claus1, words1 in classes.items():
+                    if claus1 != claus:
+                        if word in words1.keys():
+                            x.append(words1[word])
+                
+                N_10 = sum(x)
+                N_01 = total_in_class - N_11
 
-docs, classes = tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/ot_nt_q.tsv")
-MI, chi = mi_chi(docs, classes)
-lda_out = lda(docs)
-# print(max(list(chi['OT'].values())))
-# print(min(list(chi['OT'].values())))
-# print(max(list(chi['NT'].values())))
-# print(min(list(chi['NT'].values())))
-# print(max(list(chi['Quran'].values())))
-# print(min(list(chi['Quran'].values())))
+                a = 0
+                for claus2, words2, in docs.items():
+                    if claus2 != claus:
+                        a += len(words2)
 
+                N_00 = a - N_10
+
+                N1_ = N_11 + N_10
+                N_1 = N_01 + N_11
+                N0_ = N_01 + N_00
+                N_0 = N_00 + N_10
+
+                MI[claus][word] = ANALYSIS.MI_calc(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N)
+                chi_sq[claus][word] = ANALYSIS.chi_sq_calc(N_11, N_10, N_00, N_01, N_1, N_0, N1_, N0_, N)
+            
+            classes_MI.update(dict(MI))
+            classes_chi.update(dict(chi_sq))
+
+        for i in ["OT","NT","Quran"]:
+            classes_MI_class = dict(sorted(classes_MI[i].items(), key=lambda item: item[1], reverse=True))
+            classes_chi_class = dict(sorted(classes_chi[i].items(), key=lambda item: item[1], reverse=True))
+            # print(list(islice(classes_MI_class.items(),10)))
+            # print(list(islice(classes_chi_class.items(),10)))
+
+        return classes_MI, classes_chi
+
+    # Section for topic Analysis
+    # Helper function to give the average score of each topic of the class
+    def avg_score_topic(topic_probs):
+
+        avg_score = []
+        for topic in range(20):
+            topicwise_sum = 0
+            for doc in topic_probs:
+                topicwise_sum += doc[topic][1]
+            avg_score.append(topicwise_sum/len(topic_probs))
+        
+        return avg_score
+
+    # Main block for Topic Analysis. Here, the gensim LDA model is used with 20 random topics to calculate the topic probability for each document
+    # in the class and get the average topic score of the class
+    def lda(docs):
+        
+        common_texts = [t for doc in docs.values() for t in doc]
+        common_dictionary = Dictionary(common_texts)
+        common_corpus = [common_dictionary.doc2bow(text) for text in common_texts]
+        lda = LdaModel(common_corpus, num_topics = 20, id2word = common_dictionary, random_state=42)
+        corpus_each = list(docs.values())
+
+        OT_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[:len(corpus_each[0])]]
+        NT_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[len(corpus_each[0]):(len(corpus_each[0])+len(corpus_each[1]))]]
+        Q_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[(len(corpus_each[0])+len(corpus_each[1])):]]
+
+        OT_avg_topic_score = ANALYSIS.avg_score_topic(OT_topic_prob)
+        NT_avg_topic_score = ANALYSIS.avg_score_topic(NT_topic_prob)
+        Q_avg_topic_score = ANALYSIS.avg_score_topic(Q_topic_prob)
+
+        maxm = [("OT", OT_avg_topic_score.index(max(OT_avg_topic_score)),max(OT_avg_topic_score)), 
+        ("NT", NT_avg_topic_score.index(max(NT_avg_topic_score)),max(NT_avg_topic_score)), ("Quran", Q_avg_topic_score.index(max(Q_avg_topic_score)),max(Q_avg_topic_score))]
+
+        for t in maxm:
+            print(f'Topic: {t[2]} for {t[0]} for topic {t[1]}')
+            print(lda.print_topic(t[1], 10))
+    # main implementation block for task 2
+    def task_2():
+        docs, classes = ANALYSIS.tsv_reader("/Users/arnav/Desktop/Y4/ttds/cw2/ot_nt_q.tsv")
+        MI, chi = ANALYSIS.mi_chi(docs, classes)
+        lda_out = ANALYSIS.lda(docs)
 
 # TASK 3
-def preprocess(text):
 
-    #removing all the links
-    text = re.sub(r'^https?:\/\/.*[\r\n]*', '', text, flags=re.MULTILINE)
+# This section implements a sentiment analyser with an LinearSVC classifier and tries the improvements that can be made on 
+# the baseline model to increase accuracy
+class CLASSIFICATION:
 
-    # from string import punctuation
-    # # Eliminate duplicate whitespaces using wildcards
-    # text = re.sub('\s+', ' ', text)
-    # # checks for all the alphanumeric characters, spaces and punctuations and keeps them in the corpus
-    # text = ''.join(t for t in text if (t.isalnum() or t.isspace() or t in punctuation))
-    # # replaces all the punctiations with spaces
-    # punctuation1 = punctuation.replace("\'",'')
-    # regex = re.compile('[%s]' % re.escape(punctuation1))
-    # text = regex.sub(' ', text)
-    # # design choice to replace all punctuations with space but apostophe with no-space('')
-    # text = re.sub("\'",'',text)
-    # # splits the entire text at blank spaces
-    text = text.split()
-    
-    # # converts the entire vocabulary into lower case
-    # words = []
-    # for word in text:
-    #     words.append(word.lower())
+    # Preprocesses for baseline model by only removing links and tokenising 
+    def preprocess(text):
 
-    return(text)
+        #removing all the links
+        text = re.sub(r'^https?:\/\/.*[\r\n]*', '', text, flags=re.MULTILINE)
+        # tokenisation
+        text = text.split()
 
-def preprocess_imp(text):
-    from string import punctuation
-    #removing all the links
-    text = re.sub(r'^https?:\/\/.*[\r\n]*', '', text, flags=re.MULTILINE)
+        return(text)
 
-    # from string import punctuation
-    # # Eliminate duplicate whitespaces using wildcards
-    text = re.sub('\s+', ' ', text)
-    # checks for all the alphanumeric characters, spaces and punctuations and keeps them in the corpus
-    # text = ''.join(t for t in text if (t.isalnum() or t.isspace() or t in punctuation))
-    # # replaces all the punctiations with spaces
-    # punctuation1 = punctuation.replace("\'",'')
-    # regex = re.compile('[%s]' % re.escape(punctuation1))
-    # text = regex.sub(' ', text)
-    # # design choice to replace all punctuations with space but apostophe with no-space('')
-    text = re.sub("\'",'',text)
-    # # splits the entire text at blank spaces
-    text = text.split()
+    # preprocesses for the improvement model and performs all the preprocessing done previously for lda model but does not apply stemming
+    # removes all the links
+    def preprocess_imp(text):
+        from string import punctuation
+        #removing all the links
+        text = re.sub(r'^https?:\/\/.*[\r\n]*', '', text, flags=re.MULTILINE)
 
-    # converts the entire vocabulary into lower case
-    words = []
-    for word in text:
-        words.append(word.lower())
+        # from string import punctuation
+        # Eliminate duplicate whitespaces using wildcards
+        text = re.sub('\s+', ' ', text)
+        # checks for all the alphanumeric characters, spaces and punctuations and keeps them in the corpus
+        text = ''.join(t for t in text if (t.isalnum() or t.isspace() or t in punctuation))
+        # replaces all the punctiations with spaces
+        punctuation1 = punctuation.replace("\'",'')
+        regex = re.compile('[%s]' % re.escape(punctuation1))
+        text = regex.sub(' ', text)
+        # design choice to replace all punctuations with space but apostophe with no-space('')
+        text = re.sub("\'",'',text)
+        # splits the entire text at blank spaces
+        text = text.split()
 
-    # Stop words removal
-    stopwords = open("/Users/arnav/Desktop/Y4/ttds/cw1/englishST.txt").read()
-    processed_text = [word for word in words if word not in stopwords]
-    # print(processed_text[:100])
+        # converts the entire vocabulary into lower case
+        words = []
+        for word in text:
+            words.append(word.lower())
 
-    # Normalization using Porter stemmer
-    porter = PorterStemmer()
-    stem_words = [porter.stem(word) for word in processed_text]
-    stem_words_without_stopping = [porter.stem(word) for word in words]
-    # print(stem_words[:80])
+        # Stop words removal
+        stopwords = open("/Users/arnav/Desktop/Y4/ttds/cw1/englishST.txt").read()
+        processed_text = [word for word in words if word not in stopwords]
 
-    return(processed_text)
+        # Normalization using Porter stemmer
+        porter = PorterStemmer()
+        stem_words = [porter.stem(word) for word in processed_text]
+        stem_words_without_stopping = [porter.stem(word) for word in words]
 
-def baseline(train_dev):
-    train_dev_shuffled = train_dev.sample(frac=1)
+        return(processed_text)
 
-    preprocessed_tweet = []
-    for idx, i in train_dev_shuffled.iterrows():
-        preprocessed_tweet.append(preprocess(i["tweet"]))
-    train_dev_shuffled["preprocessed_tweet"] = preprocessed_tweet
-    return train_dev_shuffled
+    # creates a dataset for the baseline model by creating a dataframe with an added column of preprocessed tweet
+    # also shuffles the data everytime
+    def baseline(train_dev):
+        train_dev_shuffled = train_dev.sample(frac=1)
 
-def baseline_imp(train_dev):
-    train_dev_shuffled = train_dev.sample(frac=1)
+        preprocessed_tweet = []
+        for idx, i in train_dev_shuffled.iterrows():
+            preprocessed_tweet.append(CLASSIFICATION.preprocess(i["tweet"]))
+        train_dev_shuffled["preprocessed_tweet"] = preprocessed_tweet
+        return train_dev_shuffled
 
-    preprocessed_tweet = []
-    for idx, i in train_dev_shuffled.iterrows():
-        preprocessed_tweet.append(preprocess_imp(i["tweet"]))
-    train_dev_shuffled["preprocessed_tweet"] = preprocessed_tweet
-    return train_dev_shuffled
+    # improved dataset for improvement model with the improved preprocessing
+    def baseline_imp(train_dev):
+        train_dev_shuffled = train_dev.sample(frac=1)
 
-def vocabid(train):
-    unique_tokens = []
-    for tweet in train:
-        unique_tokens += tweet
-    unique_tokens = set(unique_tokens)
-    # print(len(unique_tokens))
+        preprocessed_tweet = []
+        for idx, i in train_dev_shuffled.iterrows():
+            preprocessed_tweet.append(CLASSIFICATION.preprocess_imp(i["tweet"]))
+        train_dev_shuffled["preprocessed_tweet"] = preprocessed_tweet
+        return train_dev_shuffled
 
-    vocab_id = {}
-    for idx, tokens in enumerate(unique_tokens):
-        vocab_id[tokens] = idx
-    # print(vocab_id)
-    return vocab_id
- 
-def bow_matrix(data, id):
-    oov_index = len(id)
-    S = dok_matrix((len(data), len(id)+1))
-    for doc_id, doc in enumerate(data):
-        for word in doc:
-            S[doc_id, id.get(word, oov_index)] += 1
-    
-    return S
+    # creates a word2id dictionary for all the unique tokens in the train/dev/test set
+    def vocabid(train):
+        unique_tokens = []
+        for tweet in train:
+            unique_tokens += tweet
+        unique_tokens = set(unique_tokens)
 
-def bow_matrix_normalized(data, id):
-    oov_index = len(id)
-    S = dok_matrix((len(data), len(id)+1))
-    for doc_id, doc in enumerate(data):
-        for word in doc:
-            S[doc_id, id.get(word, oov_index)] += 1/len(doc)
-    
-    return S
+        vocab_id = {}
+        for idx, tokens in enumerate(unique_tokens):
+            vocab_id[tokens] = idx
 
-def categoryid(data):
-    category_id = {}
-    for idx, category in enumerate(set(data)):
-        category_id[category] = idx
-    E = [category_id[category] for category in data]
-    return E
+        return vocab_id
 
-def prepared_data(pred, true):
+    # creates the BOW matrix feature for training the model and predicting too
+    def bow_matrix(data, id):
+        oov_index = len(id)
+        S = dok_matrix((len(data), len(id)+1))
+        for doc_id, doc in enumerate(data):
+            for word in doc:
+                S[doc_id, id.get(word, oov_index)] += 1
+        
+        return S
 
-    all_dict = classification_report(true, pred, output_dict = True)
-    print(all_dict['accuracy'])
-    del all_dict['accuracy']
-    del all_dict['weighted avg']
-    scores = []
-    for i in all_dict.keys():
-        scores.append(all_dict[i]['precision'])
-        scores.append(all_dict[i]['recall'])
-        scores.append(all_dict[i]['f1-score'])
-    return scores
+    # creates a normalized BOW matrix for improvement model
+    def bow_matrix_normalized(data, id):
+        oov_index = len(id)
+        S = dok_matrix((len(data), len(id)+1))
+        for doc_id, doc in enumerate(data):
+            for word in doc:
+                S[doc_id, id.get(word, oov_index)] += 1/len(doc)
+        
+        return S
 
-train_dev = pd.read_csv("/Users/arnav/Desktop/Y4/ttds/cw2/train.tsv", sep = "\t")
+    # creates the list of unique categories in the dataset and provides them ids
+    def categoryid(data):
+        category_id = {}
+        for idx, category in enumerate(set(data)):
+            category_id[category] = idx
+        E = [category_id[category] for category in data]
 
-# 80 20 split
-train, dev = train_test_split(baseline(train_dev), test_size=0.1)
-test = pd.read_csv("/Users/arnav/Desktop/Y4/ttds/cw2/test.tsv", sep = "\t")
-test_baseline = baseline(test)
+        cat_names = []
+        for cat,cid in sorted(category_id.items(),key=lambda x:x[1]):
+            cat_names.append(cat)
 
-Xtrain = train["preprocessed_tweet"].tolist()
-Xdev = dev["preprocessed_tweet"].tolist()
-Ytrain = train["sentiment"].tolist()
-Ydev= dev["sentiment"].tolist()
-Xtest = test_baseline["preprocessed_tweet"].tolist()
-Ytest = test_baseline["sentiment"].tolist()
+        return E, cat_names
 
-vocab_id = vocabid(Xtrain)
+    # prepares the precision, recall and f1 data properly for writing into the file
+    def prepared_data(pred, true):
 
-sparse_matrix_train = bow_matrix(Xtrain, vocab_id)
-sparse_matrix_dev = bow_matrix(Xdev, vocab_id)
-sparse_matrix_test = bow_matrix(Xtest, vocab_id)
-category_id_train = categoryid(Ytrain)
-category_id_dev = categoryid(Ydev)
-category_id_test = categoryid(Ytest)
-print("////////////////////////////////////")
-model = sklearn.svm.LinearSVC(C=1000, random_state = 42)
-model.fit(sparse_matrix_train, category_id_train)
-y_train_preds = model.predict(sparse_matrix_train)
-y_dev_preds = model.predict(sparse_matrix_dev)
-y_test_preds = model.predict(sparse_matrix_test)
+        all_dict = classification_report(true, pred, output_dict = True)
+        print(all_dict['accuracy'])
+        del all_dict['accuracy']
+        del all_dict['weighted avg']
+        scores = []
+        for i in all_dict.keys():
+            scores.append(all_dict[i]['precision'])
+            scores.append(all_dict[i]['recall'])
+            scores.append(all_dict[i]['f1-score'])
+        return scores
 
-dev_dict = prepared_data(category_id_dev, y_dev_preds)
-train_dict = prepared_data(category_id_train, y_train_preds)
-test_dict = prepared_data(category_id_test, y_test_preds)
+    # main implementation block for task 3
+    def task_3():
+        # get the dataset to train the model
+        train_dev = pd.read_csv("/Users/arnav/Desktop/Y4/ttds/cw2/train.tsv", sep = "\t")
 
-# print(train_dict)
-# print(dev_dict)
-# print(test_dict)
+        # divide the dataset into a 80-20 split for training and development
+        train, dev = train_test_split(CLASSIFICATION.baseline(train_dev), test_size=0.2)
+        test = pd.read_csv("/Users/arnav/Desktop/Y4/ttds/cw2/test.tsv", sep = "\t")
+        test_baseline = CLASSIFICATION.baseline(test)
 
-#IMPROVEMENT (Normalized bow matric and c=10 for 6-8% improvement -- best model yet)
-train_imp, dev_imp = train_test_split(baseline_imp(train_dev), test_size=0.1)
-test_baseline_imp = baseline_imp(test)
-Xtrain_imp = train_imp["preprocessed_tweet"].tolist()
-Xdev_imp = dev_imp["preprocessed_tweet"].tolist()
-Ytrain_imp = train_imp["sentiment"].tolist()
-Ydev_imp = dev_imp["sentiment"].tolist()
-Xtest_imp = test_baseline_imp["preprocessed_tweet"].tolist()
-Ytest_imp = test_baseline_imp["sentiment"].tolist()
+        # Extract the required data from the dataframe
+        Xtrain = train["preprocessed_tweet"].tolist()
+        Xdev = dev["preprocessed_tweet"].tolist()
+        Ytrain = train["sentiment"].tolist()
+        Ydev= dev["sentiment"].tolist()
+        Xtest = test_baseline["preprocessed_tweet"].tolist()
+        Ytest = test_baseline["sentiment"].tolist()
 
-vocab_id_imp = vocabid(Xtrain_imp)
+        # get the word2id
+        vocab_id = CLASSIFICATION.vocabid(Xtrain)
 
-# _normalized
-sparse_matrix_train_imp = bow_matrix_normalized(Xtrain_imp, vocab_id_imp)
-sparse_matrix_dev_imp = bow_matrix_normalized(Xdev_imp, vocab_id_imp)
-sparse_matrix_test_imp = bow_matrix_normalized(Xtest_imp, vocab_id_imp)
-category_id_train_imp = categoryid(Ytrain_imp)
-category_id_dev_imp = categoryid(Ydev_imp)
-category_id_test_imp = categoryid(Ytest_imp)
+        # For training and predicting on the baseline model
+        sparse_matrix_train = CLASSIFICATION.bow_matrix(Xtrain, vocab_id)
+        sparse_matrix_dev = CLASSIFICATION.bow_matrix(Xdev, vocab_id)
+        sparse_matrix_test = CLASSIFICATION.bow_matrix(Xtest, vocab_id)
+        category_id_train, train_cat_names = CLASSIFICATION.categoryid(Ytrain)
+        category_id_dev, dev_cat_names = CLASSIFICATION.categoryid(Ydev)
+        category_id_test, test_cat_names = CLASSIFICATION.categoryid(Ytest)
+        model = sklearn.svm.LinearSVC(C=1000, random_state = 42)
+        model.fit(sparse_matrix_train, category_id_train)
+        y_train_preds = model.predict(sparse_matrix_train)
+        y_dev_preds = model.predict(sparse_matrix_dev)
+        y_test_preds = model.predict(sparse_matrix_test)
 
-model_imp = sklearn.svm.SVC(C=10, random_state = 42)
-model_imp.fit(sparse_matrix_train_imp, category_id_train_imp)
-y_train_preds_imp = model_imp.predict(sparse_matrix_train_imp)
-y_dev_preds_imp = model_imp.predict(sparse_matrix_dev_imp)
-y_test_preds_imp = model_imp.predict(sparse_matrix_test_imp)
+        train_dict = CLASSIFICATION.prepared_data(category_id_train, y_train_preds)
+        dev_dict = CLASSIFICATION.prepared_data(category_id_dev, y_dev_preds)
+        test_dict = CLASSIFICATION.prepared_data(category_id_test, y_test_preds)
 
-dev_dict_imp = prepared_data(category_id_dev_imp, y_dev_preds_imp)
-train_dict_imp = prepared_data(category_id_train_imp, y_train_preds_imp)
-test_dict_imp = prepared_data(category_id_test_imp, y_test_preds_imp)
+        # For improving the accuracy of the baseline model
+        #IMPROVEMENT (Normalized bow matric and c=10 for 6-8% improvement -- best model yet)
+        train_imp, dev_imp = train_test_split(CLASSIFICATION.baseline_imp(train_dev), test_size=0.1)
+        test_baseline_imp = CLASSIFICATION.baseline_imp(test)
+        Xtrain_imp = train_imp["preprocessed_tweet"].tolist()
+        Xdev_imp = dev_imp["preprocessed_tweet"].tolist()
+        Ytrain_imp = train_imp["sentiment"].tolist()
+        Ydev_imp = dev_imp["sentiment"].tolist()
+        Xtest_imp = test_baseline_imp["preprocessed_tweet"].tolist()
+        Ytest_imp = test_baseline_imp["sentiment"].tolist()
 
-# print(train_dict_imp)
-# print(dev_dict_imp)
-# print(test_dict_imp)
+        vocab_id_imp = CLASSIFICATION.vocabid(Xtrain_imp)
 
-with open('classification.csv', 'w') as cls:
-    writer = csv.writer(cls, delimiter=",")
-    writer.writerow(['system','split','p-pos','r-pos','f-pos','p-neg','r-neg','f-neg','p-neu','r-neu','f-neu','p-macro','r-macro','f-macro'])
-    writer.writerow(['baseline', 'train', train_dict[0], train_dict[1], train_dict[2], train_dict[3], train_dict[4], train_dict[5], train_dict[6], train_dict[7], train_dict[8], train_dict[9], train_dict[10], train_dict[11]])
-    writer.writerow(['baseline', 'dev', dev_dict[0], dev_dict[1], dev_dict[2], dev_dict[3], dev_dict[4], dev_dict[5], dev_dict[6], dev_dict[7], dev_dict[8], dev_dict[9], dev_dict[10], dev_dict[11]])
-    writer.writerow(['baseline', 'test', test_dict[0], test_dict[1], test_dict[2], test_dict[3], test_dict[4], test_dict[5], test_dict[6], test_dict[7], test_dict[8], test_dict[9], test_dict[10], test_dict[1]])
-    writer.writerow(['improved', 'train', train_dict_imp[0], train_dict_imp[1], train_dict_imp[2], train_dict_imp[3], train_dict_imp[4], train_dict_imp[5], train_dict_imp[6], train_dict_imp[7], train_dict_imp[8], train_dict_imp[9], train_dict_imp[10], train_dict_imp[11]])
-    writer.writerow(['improved', 'dev', dev_dict_imp[0], dev_dict_imp[1], dev_dict_imp[2], dev_dict_imp[3], dev_dict_imp[4], dev_dict_imp[5], dev_dict_imp[6], dev_dict_imp[7], dev_dict_imp[8], dev_dict_imp[9], dev_dict_imp[10], dev_dict_imp[11]])
-    writer.writerow(['improved', 'test', test_dict_imp[0], test_dict_imp[1], test_dict_imp[2], test_dict_imp[3], test_dict_imp[4], test_dict_imp[5], test_dict_imp[6], test_dict_imp[7], test_dict_imp[8], test_dict_imp[9], test_dict_imp[10], test_dict_imp[1]])
+        sparse_matrix_train_imp = CLASSIFICATION.bow_matrix_normalized(Xtrain_imp, vocab_id_imp)
+        sparse_matrix_dev_imp = CLASSIFICATION.bow_matrix_normalized(Xdev_imp, vocab_id_imp)
+        sparse_matrix_test_imp = CLASSIFICATION.bow_matrix_normalized(Xtest_imp, vocab_id_imp)
+        category_id_train_imp, train_cat_names_imp = CLASSIFICATION.categoryid(Ytrain_imp)
+        category_id_dev_imp, dev_cat_names_imp = CLASSIFICATION.categoryid(Ydev_imp)
+        category_id_test_imp, test_cat_names_imp = CLASSIFICATION.categoryid(Ytest_imp)
 
-with open('ainvayi.txt','w') as f:
-    writer = csv.writer(f, delimiter=",")
-    writer.writerow(y_dev_preds)
-    writer.writerow(category_id_dev)
+        model_imp = sklearn.svm.SVC(C=50, random_state = 42)
+        model_imp.fit(sparse_matrix_train_imp, category_id_train_imp)
+        y_train_preds_imp = model_imp.predict(sparse_matrix_train_imp)
+        y_dev_preds_imp = model_imp.predict(sparse_matrix_dev_imp)
+        y_test_preds_imp = model_imp.predict(sparse_matrix_test_imp)
+
+        train_dict_imp = CLASSIFICATION.prepared_data(category_id_train_imp, y_train_preds_imp)
+        dev_dict_imp = CLASSIFICATION.prepared_data(category_id_dev_imp, y_dev_preds_imp)
+        test_dict_imp = CLASSIFICATION.prepared_data(category_id_test_imp, y_test_preds_imp)
+
+        # Writing into the classification.csv file in the required format
+        with open('classification.csv', 'w') as cls:
+            writer = csv.writer(cls, delimiter=",")
+            writer.writerow(['system','split','p-pos','r-pos','f-pos','p-neg','r-neg','f-neg','p-neu','r-neu','f-neu','p-macro','r-macro','f-macro'])
+            writer.writerow(['baseline', 'train', train_dict[0], train_dict[1], train_dict[2], train_dict[3], train_dict[4], train_dict[5], train_dict[6], train_dict[7], train_dict[8], train_dict[9], train_dict[10], train_dict[11]])
+            writer.writerow(['baseline', 'dev', dev_dict[0], dev_dict[1], dev_dict[2], dev_dict[3], dev_dict[4], dev_dict[5], dev_dict[6], dev_dict[7], dev_dict[8], dev_dict[9], dev_dict[10], dev_dict[11]])
+            writer.writerow(['baseline', 'test', test_dict[0], test_dict[1], test_dict[2], test_dict[3], test_dict[4], test_dict[5], test_dict[6], test_dict[7], test_dict[8], test_dict[9], test_dict[10], test_dict[1]])
+            writer.writerow(['improved', 'train', train_dict_imp[0], train_dict_imp[1], train_dict_imp[2], train_dict_imp[3], train_dict_imp[4], train_dict_imp[5], train_dict_imp[6], train_dict_imp[7], train_dict_imp[8], train_dict_imp[9], train_dict_imp[10], train_dict_imp[11]])
+            writer.writerow(['improved', 'dev', dev_dict_imp[0], dev_dict_imp[1], dev_dict_imp[2], dev_dict_imp[3], dev_dict_imp[4], dev_dict_imp[5], dev_dict_imp[6], dev_dict_imp[7], dev_dict_imp[8], dev_dict_imp[9], dev_dict_imp[10], dev_dict_imp[11]])
+            writer.writerow(['improved', 'test', test_dict_imp[0], test_dict_imp[1], test_dict_imp[2], test_dict_imp[3], test_dict_imp[4], test_dict_imp[5], test_dict_imp[6], test_dict_imp[7], test_dict_imp[8], test_dict_imp[9], test_dict_imp[10], test_dict_imp[1]])
+
+
+if __name__ == "__main__":
+
+    EVAL.task_1()
+    ANALYSIS.task_2()
+    CLASSIFICATION.task_3()
