@@ -8,9 +8,6 @@ import itertools
 from itertools import islice
 from scipy.sparse import dok_matrix
 import sklearn
-from sklearn import ensemble
-from sklearn import tree
-import sys
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
@@ -18,7 +15,7 @@ from nltk.stem import PorterStemmer
 from gensim.corpora.dictionary import Dictionary
 from gensim.models.ldamodel import LdaModel
 
-# import scipy.stats as stats
+import scipy.stats as stats
 
 #TASK 1
 
@@ -31,11 +28,11 @@ class EVAL:
     def retrieved_docs(filename):
 
         results = collections.defaultdict(lambda: collections.defaultdict(list))
-        with open(filename, 'r') as f:
-            reader = csv.reader(f, delimiter=',')
-            next(reader)
-            for row in reader:
-                results[int(row[0])][int(row[1])].append(row[2:])
+        with open(filename) as f:
+            f.readline()
+            for row in f:
+                system_number, query_number, doc_number, rank_doc, score = row.strip().split(",")
+                results[int(system_number)][int(query_number)].append([int(doc_number), int(rank_doc), float(score)])
             
         return results
 
@@ -48,10 +45,10 @@ class EVAL:
 
         results = collections.defaultdict(lambda: collections.defaultdict(list))
         with open(filename, 'r') as f:
-            reader = csv.reader(f, delimiter=',')
-            next(reader)
-            for row in reader:
-                results[int(row[0])][int(row[1])] = int(row[2])
+            f.readline()
+            for row in f:
+                query_number, doc_number, relevance = row.strip().split(",")
+                results[int(query_number)][int(doc_number)] = int(relevance)
             
         return results
 
@@ -72,8 +69,8 @@ class EVAL:
         ap = 0 
 
         for k in retrieved_docs:
-            if int(k[0]) in relevant_docs.keys():
-                precision_k = EVAL.precision(EVAL.Extract(retrieved_docs[:int(k[1])]), relevant_docs)
+            if k[0] in relevant_docs.keys():
+                precision_k = EVAL.precision(EVAL.Extract(retrieved_docs[:k[1]]), relevant_docs)
                 ap += precision_k * 1
             else:
                 ap += 0
@@ -83,21 +80,17 @@ class EVAL:
     # Calculates nDCG by comparing DCG at each rank with the ideal DCG 
     def nDCG(retrieved_docs, relevant_docs):
 
-        rel1 = relevant_docs[int(retrieved_docs[0][0])] if retrieved_docs[0][0] in relevant_docs.keys() else 0
+        rel1 = relevant_docs[retrieved_docs[0][0]] if retrieved_docs[0][0] in relevant_docs.keys() else 0
         DCG = rel1
-        for i in retrieved_docs[1:]:
-            if int(i[0]) in relevant_docs.keys():
-                DCG += relevant_docs[int(i[0])]/math.log2(int(i[1]))
-        
-        # print(DCG)
+        for rank, doc_number in enumerate(retrieved_docs[1:]):
+            if doc_number[0] in relevant_docs.keys():
+                DCG += relevant_docs[doc_number[0]]/np.log2(rank+2)
+
         irel = list(relevant_docs.values())
-        # print(irel)
         iDCG = irel[0]
         for idx, rel in enumerate(irel[1:]):
-            # print(idx, rel)
-            iDCG += rel/math.log2(idx + 2)
-            # print(rel)
-        # print(iDCG)
+            iDCG += rel/np.log2(idx + 2)
+            
         nDCG = DCG/iDCG
         # sys.exit(0)
 
@@ -119,12 +112,12 @@ class EVAL:
                 for_mean = []
 
                 # for 2-tailed t-test
-                # Ps = []
-                # rs = []
-                # rps = []
-                # aps = []
-                # d10 = []
-                # d20 = []
+                Ps = []
+                rs = []
+                rps = []
+                aps = []
+                d10 = []
+                d20 = []
                 for query,doc in retrieved_doc.items():
 
                     precision_10 = EVAL.precision(EVAL.Extract(doc[:10]), relevant_doc[query])
@@ -136,8 +129,7 @@ class EVAL:
                     r_precision = EVAL.precision(EVAL.Extract(cut_off), relevant_doc[query])
 
                     ap = EVAL.AP(doc, relevant_doc[query])
-                    
-                    print(doc[:10])
+
                     rel_docs_10 = dict(itertools.islice(relevant_doc[query].items(), 10))
                     nDCG_10 = EVAL.nDCG(doc[:10], rel_docs_10)
                     rel_docs_20 = dict(itertools.islice(relevant_doc[query].items(), 20)) 
@@ -148,22 +140,23 @@ class EVAL:
                     for_mean.append([precision_10,recall_50,r_precision,ap,nDCG_10,nDCG_20])
 
                     # for 2-tailed t-test
-                    # Ps.append(precision_10)
-                    # rs.append(recall_50)
-                    # rps.append(r_precision)
-                    # aps.append(ap)
-                    # d10.append(nDCG_10)
-                    # d20.append(nDCG_20)
+                    Ps.append(precision_10)
+                    rs.append(recall_50)
+                    rps.append(r_precision)
+                    aps.append(ap)
+                    d10.append(nDCG_10)
+                    d20.append(nDCG_20)
                 
                 means.append(np.mean(for_mean, axis=0))
                 writer.writerow([system,"mean",round(means[system-1][0],3),round(means[system-1][1],3),round(means[system-1][2],3),
                 round(means[system-1][3],3),round(means[system-1][4],3),round(means[system-1][5],3)])
-
-                # # for 2-tailed t-test
-                # # Generated the p-values for test of each system with another for each measure
-                # for i in range(6):
-                #     for j in range(5-i):
-                #         print(stats.ttest_rel(d20[i], d20[i+j+1]))
+        
+        # # algorithms for round robin pvalue calculation. Does not work here though
+        # # for 2-tailed t-test
+        # # Generated the p-values for test of each system with another for each measure
+        # for i in range(6):
+        #     for j in range(5-i):
+        #         print(stats.ttest_rel(d10[i], d10[i+j+1]))
 
 # TASK 2
 
@@ -221,9 +214,6 @@ class ANALYSIS:
         classes_removed_10 = {}
         for i in ["OT","NT","Quran"]:
             classes_removed_10[i] = {token:count for token, count in classes[i].items() if count >= 10}
-            print(len(docs[i]))
-
-        print(a)
 
         return docs, classes_removed_10
 
@@ -289,8 +279,8 @@ class ANALYSIS:
         for i in ["OT","NT","Quran"]:
             classes_MI_class = dict(sorted(classes_MI[i].items(), key=lambda item: item[1], reverse=True))
             classes_chi_class = dict(sorted(classes_chi[i].items(), key=lambda item: item[1], reverse=True))
-            print(list(islice(classes_MI_class.items(),10)))
-            print(list(islice(classes_chi_class.items(),10)))
+            # print(list(islice(classes_MI_class.items(),10)))
+            # print(list(islice(classes_chi_class.items(),10)))
 
         return classes_MI, classes_chi
 
@@ -316,7 +306,6 @@ class ANALYSIS:
         common_corpus = [common_dictionary.doc2bow(text) for text in common_texts]
         lda = LdaModel(common_corpus, num_topics = 20, id2word = common_dictionary)
         corpus_each = list(docs.values())
-        print(len(common_texts))
 
         OT_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[:len(corpus_each[0])]]
         NT_topic_prob = [lda.get_document_topics(bow = text , minimum_probability = 0) for text in common_corpus[len(corpus_each[0]):(len(corpus_each[0])+len(corpus_each[1]))]]
@@ -458,7 +447,6 @@ class CLASSIFICATION:
     def prepared_data(pred, true, cat_names):
 
         all_dict = classification_report(true, pred, output_dict = True, target_names=cat_names)
-        # print(all_dict["accuracy"])
         del all_dict['accuracy']
         del all_dict['weighted avg']
         scores = []
@@ -535,7 +523,7 @@ class CLASSIFICATION:
         category_id_dev_imp, dev_cat_names_imp = CLASSIFICATION.categoryid(Ydev_imp)
         category_id_test_imp, test_cat_names_imp = CLASSIFICATION.categoryid(Ytest_imp)
 
-        model_imp = OneVsRestClassifier(sklearn.svm.SVC(C=500, random_state = 42))
+        model_imp = sklearn.svm.SVC(C=500, random_state = 42)
         model_imp.fit(sparse_matrix_train_imp, category_id_train_imp)
         y_train_preds_imp = model_imp.predict(sparse_matrix_train_imp)
         y_dev_preds_imp = model_imp.predict(sparse_matrix_dev_imp)
